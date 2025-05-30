@@ -14,6 +14,31 @@ export interface ProcessingProgress {
   updatedAt: string;
 }
 
+interface ProgressDetails {
+  id: string;
+  current_step: string;
+  total_steps: number;
+  completed_steps: number;
+  status: string;
+  last_checkpoint: string;
+  metadata?: Record<string, any>;
+}
+
+// Type guard to check if details is a valid ProgressDetails object
+function isValidProgressDetails(details: any): details is ProgressDetails {
+  return (
+    details &&
+    typeof details === 'object' &&
+    !Array.isArray(details) &&
+    typeof details.id === 'string' &&
+    typeof details.current_step === 'string' &&
+    typeof details.total_steps === 'number' &&
+    typeof details.completed_steps === 'number' &&
+    typeof details.status === 'string' &&
+    typeof details.last_checkpoint === 'string'
+  );
+}
+
 class ProgressTracker {
   private progressCache: Map<string, ProcessingProgress> = new Map();
 
@@ -70,30 +95,21 @@ class ProgressTracker {
 
       if (error || !data || !data.details) return null;
 
-      // Safely extract details with proper type checking
-      const rawDetails = data.details;
-      
-      // Basic type checking to ensure we have the required fields
-      if (typeof rawDetails !== 'object' || rawDetails === null ||
-          typeof rawDetails.id !== 'string' ||
-          typeof rawDetails.current_step !== 'string' ||
-          typeof rawDetails.total_steps !== 'number' ||
-          typeof rawDetails.completed_steps !== 'number' ||
-          typeof rawDetails.status !== 'string' ||
-          typeof rawDetails.last_checkpoint !== 'string') {
-        console.error('Invalid progress details format:', rawDetails);
+      // Use type guard to validate details
+      if (!isValidProgressDetails(data.details)) {
+        console.error('Invalid progress details format:', data.details);
         return null;
       }
 
       const progress: ProcessingProgress = {
-        id: rawDetails.id,
+        id: data.details.id,
         documentId: data.document_id!,
-        currentStep: rawDetails.current_step,
-        totalSteps: rawDetails.total_steps,
-        completedSteps: rawDetails.completed_steps,
-        status: rawDetails.status as ProcessingProgress['status'],
-        lastCheckpoint: rawDetails.last_checkpoint,
-        metadata: rawDetails.metadata as Record<string, any>,
+        currentStep: data.details.current_step,
+        totalSteps: data.details.total_steps,
+        completedSteps: data.details.completed_steps,
+        status: data.details.status as ProcessingProgress['status'],
+        lastCheckpoint: data.details.last_checkpoint,
+        metadata: data.details.metadata,
         createdAt: data.timestamp,
         updatedAt: data.timestamp
       };
