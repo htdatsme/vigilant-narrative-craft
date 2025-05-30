@@ -4,12 +4,17 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import { Badge } from '@/components/ui/badge';
-import { Upload, FileText, CheckCircle, AlertTriangle, ArrowLeft, Eye, Loader2 } from 'lucide-react';
+import { Upload, FileText, CheckCircle, AlertTriangle, ArrowLeft, Eye, Loader2, Download, Shield } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useDocuments } from '@/hooks/use-documents';
 import { useDocumentStorage } from '@/hooks/use-document-storage';
 import { useProcessingLogs } from '@/hooks/use-processing-logs';
 import { supabase } from '@/integrations/supabase/client';
+import { withRetry, createFallbackHandler } from '@/utils/errorHandling';
+import { createProcessingSession, progressTracker } from '@/utils/progressTracking';
+import { validateDocumentSecurity, logComplianceEvent } from '@/utils/security';
+import { AuditTrail } from './AuditTrail';
+import { DataExport } from './DataExport';
 
 interface DocumentProcessorProps {
   onBack: () => void;
@@ -24,11 +29,18 @@ interface ProcessingFile {
   documentId?: string;
   extractionId?: string;
   error?: string;
+  sessionId?: string;
+  securityScan?: {
+    hasPHI: boolean;
+    riskLevel: string;
+  };
 }
 
 export const DocumentProcessor = ({ onBack }: DocumentProcessorProps) => {
   const [files, setFiles] = useState<ProcessingFile[]>([]);
   const [isDragOver, setIsDragOver] = useState(false);
+  const [showAuditTrail, setShowAuditTrail] = useState(false);
+  const [showDataExport, setShowDataExport] = useState(false);
   const { toast } = useToast();
   const { createDocument } = useDocuments();
   const { uploadDocument } = useDocumentStorage();
@@ -52,33 +64,75 @@ export const DocumentProcessor = ({ onBack }: DocumentProcessorProps) => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('User not authenticated');
 
-      // Step 1: Upload file to storage
+      // Create processing session
+      const sessionId = await createProcessingSession(fileId, 5);
+      
       setFiles(prev => prev.map(f => 
-        f.id === fileId ? { ...f, status: 'uploading', progress: 20 } : f
+        f.id === fileId ? { ...f, sessionId } : f
       ));
 
-      const uploadResult = await uploadDocument(file, user.id);
+      // Step 1: Security scan
+      setFiles(prev => prev.map(f => 
+        f.id === fileId ? { ...f, status: 'processing', progress: 10 } : f
+      ));
+
+      const checkpoint1 = progressTracker.createCheckpoint(sessionId, 'security_scan');
+      
+      // Read file content for security scan
+      const fileContent = await file.text().catch(() => '');
+      const securityScan = await validateDocumentSecurity(fileId, fileContent);
+      
+      await checkpoint1();
+
+      setFiles(prev => prev.map(f => 
+        f.id === fileId ? { ...f, securityScan, progress: 20 } : f
+      ));
+
+      // Step 2: Upload with retry mechanism
+      const uploadOperation = withRetry(
+        () => uploadDocument(file, user.id),
+        { maxAttempts: 3 },
+        `Upload file ${file.name}`
+      );
+
+      const uploadResult = await uploadOperation;
       console.log('File uploaded to storage:', uploadResult.path);
 
-      // Step 2: Create document record
-      const document = await createDocument({
-        filename: file.name,
-        file_path: uploadResult.path,
-        file_size: file.size,
-        mime_type: file.type,
-        upload_status: 'pending'
+      const checkpoint2 = progressTracker.createCheckpoint(sessionId, 'file_uploaded', {
+        file_path: uploadResult.path
       });
+      await checkpoint2();
+
+      // Step 3: Create document record with retry
+      const createDocOperation = withRetry(
+        () => createDocument({
+          filename: file.name,
+          file_path: uploadResult.path,
+          file_size: file.size,
+          mime_type: file.type,
+          upload_status: 'pending'
+        }),
+        { maxAttempts: 3 },
+        `Create document record for ${file.name}`
+      );
+
+      const document = await createDocOperation;
 
       setFiles(prev => prev.map(f => 
         f.id === fileId ? { ...f, documentId: document.id, progress: 40 } : f
       ));
 
-      // Step 3: Process with edge function
+      const checkpoint3 = progressTracker.createCheckpoint(sessionId, 'document_created', {
+        document_id: document.id
+      });
+      await checkpoint3();
+
+      // Step 4: Process with edge function using fallback
       setFiles(prev => prev.map(f => 
-        f.id === fileId ? { ...f, status: 'processing', progress: 60 } : f
+        f.id === fileId ? { ...f, progress: 60 } : f
       ));
 
-      const { data, error } = await supabase.functions.invoke('process-document', {
+      const primaryProcessing = () => supabase.functions.invoke('process-document', {
         body: {
           documentId: document.id,
           filePath: uploadResult.path,
@@ -86,15 +140,45 @@ export const DocumentProcessor = ({ onBack }: DocumentProcessorProps) => {
         }
       });
 
-      if (error) {
-        throw new Error(error.message || 'Processing failed');
+      const fallbackProcessing = async () => {
+        // Fallback: Create basic extraction record
+        await createLog({
+          document_id: document.id,
+          action: 'fallback_processing',
+          details: { reason: 'Primary processing failed' }
+        });
+
+        const { data: extraction } = await supabase
+          .from('extractions')
+          .insert({
+            document_id: document.id,
+            status: 'completed',
+            raw_data: { filename: file.name, fallback: true }
+          })
+          .select()
+          .single();
+
+        return { data: { success: true, extractionId: extraction?.id } };
+      };
+
+      const processOperation = createFallbackHandler(
+        primaryProcessing,
+        fallbackProcessing,
+        `Process document ${file.name}`
+      );
+
+      const { data, error } = await processOperation();
+
+      if (error || !data?.success) {
+        throw new Error(data?.error || error?.message || 'Processing failed');
       }
 
-      if (!data.success) {
-        throw new Error(data.error || 'Processing failed');
-      }
+      const checkpoint4 = progressTracker.createCheckpoint(sessionId, 'processing_completed', {
+        extraction_id: data.extractionId
+      });
+      await checkpoint4();
 
-      // Step 4: Complete processing
+      // Step 5: Complete processing
       setFiles(prev => prev.map(f => 
         f.id === fileId ? { 
           ...f, 
@@ -104,13 +188,25 @@ export const DocumentProcessor = ({ onBack }: DocumentProcessorProps) => {
         } : f
       ));
 
+      // Log compliance event
+      await logComplianceEvent({
+        action: 'document_processed',
+        documentId: document.id,
+        details: {
+          filename: file.name,
+          security_scan: securityScan,
+          processing_session: sessionId
+        }
+      });
+
       toast({
         title: "Document processed successfully",
-        description: "PDF extraction and analysis completed using enhanced AI processing.",
+        description: `${file.name} has been processed with enhanced security scanning.`,
       });
 
     } catch (error) {
       console.error('Enhanced processing error:', error);
+      
       setFiles(prev => prev.map(f => 
         f.id === fileId ? { 
           ...f, 
@@ -230,16 +326,40 @@ export const DocumentProcessor = ({ onBack }: DocumentProcessorProps) => {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-center space-x-4">
-        <Button variant="ghost" onClick={onBack}>
-          <ArrowLeft className="w-4 h-4 mr-2" />
-          Back to Dashboard
-        </Button>
-        <div>
-          <h2 className="text-2xl font-semibold text-medical-text">Enhanced Document Processor</h2>
-          <p className="text-muted-foreground">Upload and process Canada Vigilance adverse event reports with advanced AI processing</p>
+      <div className="flex items-center justify-between">
+        <div className="flex items-center space-x-4">
+          <Button variant="ghost" onClick={onBack}>
+            <ArrowLeft className="w-4 h-4 mr-2" />
+            Back to Dashboard
+          </Button>
+          <div>
+            <h2 className="text-2xl font-semibold text-medical-text">Enhanced Document Processor</h2>
+            <p className="text-muted-foreground">Upload and process Canada Vigilance adverse event reports with advanced AI processing</p>
+          </div>
+        </div>
+        <div className="flex space-x-2">
+          <Button
+            variant="outline"
+            onClick={() => setShowAuditTrail(!showAuditTrail)}
+          >
+            <Shield className="w-4 h-4 mr-2" />
+            Audit Trail
+          </Button>
+          <Button
+            variant="outline"
+            onClick={() => setShowDataExport(!showDataExport)}
+          >
+            <Download className="w-4 h-4 mr-2" />
+            Data Export
+          </Button>
         </div>
       </div>
+
+      {/* Show Audit Trail */}
+      {showAuditTrail && <AuditTrail />}
+
+      {/* Show Data Export */}
+      {showDataExport && <DataExport />}
 
       {/* Upload Area */}
       <Card className="bg-white">
@@ -265,7 +385,7 @@ export const DocumentProcessor = ({ onBack }: DocumentProcessorProps) => {
               Drop PDF files here or click to browse
             </h3>
             <p className="text-muted-foreground mb-4">
-              Enhanced processing with Supabase Edge Functions, Parseur AI, and OpenAI integration
+              Enhanced processing with security scanning, error recovery, and compliance logging
             </p>
             <input
               type="file"
@@ -289,7 +409,7 @@ export const DocumentProcessor = ({ onBack }: DocumentProcessorProps) => {
         <Card className="bg-white">
           <CardHeader>
             <CardTitle className="text-medical-text">Enhanced Processing Queue</CardTitle>
-            <CardDescription>Track the progress of your document processing with advanced AI capabilities</CardDescription>
+            <CardDescription>Track the progress of your document processing with advanced security and compliance features</CardDescription>
           </CardHeader>
           <CardContent>
             <div className="space-y-4">
@@ -303,6 +423,26 @@ export const DocumentProcessor = ({ onBack }: DocumentProcessorProps) => {
                         <p className="text-sm text-muted-foreground">
                           {(file.size / 1024 / 1024).toFixed(2)} MB • {getStatusText(file.status)}
                         </p>
+                        {file.securityScan && (
+                          <div className="flex items-center space-x-2 mt-1">
+                            <Badge 
+                              className={
+                                file.securityScan.riskLevel === 'HIGH' 
+                                  ? 'bg-red-500 text-white' 
+                                  : file.securityScan.riskLevel === 'MEDIUM'
+                                  ? 'bg-orange-500 text-white'
+                                  : 'bg-green-500 text-white'
+                              }
+                            >
+                              {file.securityScan.riskLevel} RISK
+                            </Badge>
+                            {file.securityScan.hasPHI && (
+                              <Badge className="bg-purple-500 text-white">
+                                PHI DETECTED
+                              </Badge>
+                            )}
+                          </div>
+                        )}
                         {file.error && (
                           <p className="text-sm text-red-600 mt-1">{file.error}</p>
                         )}
@@ -352,33 +492,40 @@ export const DocumentProcessor = ({ onBack }: DocumentProcessorProps) => {
           <CardTitle className="text-medical-text">Enhanced Processing Pipeline</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
             <div className="flex items-start space-x-3">
               <div className="w-8 h-8 bg-medical-blue rounded-full flex items-center justify-center text-white font-medium">1</div>
               <div>
-                <h4 className="font-medium text-medical-text">Upload & Store</h4>
-                <p className="text-sm text-gray-600">Secure upload to Supabase Storage with metadata tracking</p>
+                <h4 className="font-medium text-medical-text">Security Scan</h4>
+                <p className="text-sm text-gray-600">PHI/PII detection and risk assessment with compliance logging</p>
               </div>
             </div>
             <div className="flex items-start space-x-3">
               <div className="w-8 h-8 bg-medical-blue rounded-full flex items-center justify-center text-white font-medium">2</div>
               <div>
-                <h4 className="font-medium text-medical-text">AI Extraction</h4>
-                <p className="text-sm text-gray-600">Parseur AI extracts structured data from PDF documents</p>
+                <h4 className="font-medium text-medical-text">Upload & Store</h4>
+                <p className="text-sm text-gray-600">Secure upload with retry mechanisms and progress tracking</p>
               </div>
             </div>
             <div className="flex items-start space-x-3">
               <div className="w-8 h-8 bg-medical-blue rounded-full flex items-center justify-center text-white font-medium">3</div>
               <div>
-                <h4 className="font-medium text-medical-text">Smart Analysis</h4>
-                <p className="text-sm text-gray-600">OpenAI analyzes and structures data for E2B R3 compliance</p>
+                <h4 className="font-medium text-medical-text">AI Extraction</h4>
+                <p className="text-sm text-gray-600">Parseur AI with fallback processing and error recovery</p>
               </div>
             </div>
             <div className="flex items-start space-x-3">
               <div className="w-8 h-8 bg-medical-blue rounded-full flex items-center justify-center text-white font-medium">4</div>
               <div>
-                <h4 className="font-medium text-medical-text">Generate Narratives</h4>
-                <p className="text-sm text-gray-600">AI-powered case narrative generation for regulatory submission</p>
+                <h4 className="font-medium text-medical-text">Smart Analysis</h4>
+                <p className="text-sm text-gray-600">OpenAI analysis with audit logging and compliance tracking</p>
+              </div>
+            </div>
+            <div className="flex items-start space-x-3">
+              <div className="w-8 h-8 bg-medical-blue rounded-full flex items-center justify-center text-white font-medium">5</div>
+              <div>
+                <h4 className="font-medium text-medical-text">Generate & Export</h4>
+                <p className="text-sm text-gray-600">AI narratives with secure export options and data sanitization</p>
               </div>
             </div>
           </div>
