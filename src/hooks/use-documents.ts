@@ -1,17 +1,12 @@
 
 import { useState, useEffect } from 'react';
+import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
+import type { Tables, TablesInsert, TablesUpdate } from '@/integrations/supabase/types';
 
-interface Document {
-  id: string;
-  filename: string;
-  file_path: string;
-  file_size: number;
-  mime_type: string;
-  upload_status: string;
-  created_at: string;
-  updated_at: string;
-}
+type Document = Tables<'documents'>;
+type DocumentInsert = TablesInsert<'documents'>;
+type DocumentUpdate = TablesUpdate<'documents'>;
 
 export const useDocuments = () => {
   const [documents, setDocuments] = useState<Document[]>([]);
@@ -21,8 +16,13 @@ export const useDocuments = () => {
   const fetchDocuments = async () => {
     try {
       setLoading(true);
-      // For now, return empty array since we don't have database
-      setDocuments([]);
+      const { data, error } = await supabase
+        .from('documents')
+        .select('*')
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+      setDocuments(data || []);
     } catch (error) {
       console.error('Error fetching documents:', error);
       toast({
@@ -35,22 +35,23 @@ export const useDocuments = () => {
     }
   };
 
-  const createDocument = async (document: Omit<Document, 'id' | 'created_at' | 'updated_at'>) => {
+  const createDocument = async (document: Omit<DocumentInsert, 'user_id'>) => {
     try {
-      const newDoc: Document = {
-        ...document,
-        id: `doc_${Date.now()}`,
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString()
-      };
+      const { data, error } = await supabase
+        .from('documents')
+        .insert({ ...document, user_id: 'anonymous' })
+        .select()
+        .single();
+
+      if (error) throw error;
       
-      setDocuments(prev => [newDoc, ...prev]);
+      setDocuments(prev => [data, ...prev]);
       toast({
         title: "Success",
         description: "Document created successfully"
       });
       
-      return newDoc;
+      return data;
     } catch (error) {
       console.error('Error creating document:', error);
       toast({
@@ -62,12 +63,19 @@ export const useDocuments = () => {
     }
   };
 
-  const updateDocument = async (id: string, updates: Partial<Document>) => {
+  const updateDocument = async (id: string, updates: DocumentUpdate) => {
     try {
-      setDocuments(prev => prev.map(doc => 
-        doc.id === id ? { ...doc, ...updates, updated_at: new Date().toISOString() } : doc
-      ));
-      return documents.find(doc => doc.id === id);
+      const { data, error } = await supabase
+        .from('documents')
+        .update(updates)
+        .eq('id', id)
+        .select()
+        .single();
+
+      if (error) throw error;
+      
+      setDocuments(prev => prev.map(doc => doc.id === id ? data : doc));
+      return data;
     } catch (error) {
       console.error('Error updating document:', error);
       toast({
@@ -81,6 +89,13 @@ export const useDocuments = () => {
 
   const deleteDocument = async (id: string) => {
     try {
+      const { error } = await supabase
+        .from('documents')
+        .delete()
+        .eq('id', id);
+
+      if (error) throw error;
+      
       setDocuments(prev => prev.filter(doc => doc.id !== id));
       toast({
         title: "Success",

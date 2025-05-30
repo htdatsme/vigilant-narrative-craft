@@ -1,23 +1,28 @@
 
 import { useToast } from '@/hooks/use-toast';
+import { supabase } from '@/integrations/supabase/client';
 
 export const useDocumentStorage = () => {
   const { toast } = useToast();
 
   const uploadDocument = async (file: File, userId?: string) => {
     try {
-      // Simulate file upload
       const fileName = `${Date.now()}-${file.name}`;
-      
-      // Create a mock file path
-      const mockPath = `uploads/${fileName}`;
+      const filePath = `uploads/${fileName}`;
+
+      // Upload file to Supabase storage
+      const { data: uploadData, error: uploadError } = await supabase.storage
+        .from('documents')
+        .upload(filePath, file);
+
+      if (uploadError) throw uploadError;
 
       toast({
         title: "Success",
         description: "Document uploaded successfully"
       });
 
-      return { path: mockPath };
+      return { path: uploadData.path };
     } catch (error) {
       console.error('Error uploading document:', error);
       toast({
@@ -31,9 +36,12 @@ export const useDocumentStorage = () => {
 
   const downloadDocument = async (filePath: string) => {
     try {
-      // Simulate download
-      const blob = new Blob(['Mock file content'], { type: 'application/pdf' });
-      return blob;
+      const { data, error } = await supabase.storage
+        .from('documents')
+        .download(filePath);
+
+      if (error) throw error;
+      return data;
     } catch (error) {
       console.error('Error downloading document:', error);
       toast({
@@ -47,6 +55,12 @@ export const useDocumentStorage = () => {
 
   const deleteDocument = async (filePath: string) => {
     try {
+      const { error } = await supabase.storage
+        .from('documents')
+        .remove([filePath]);
+
+      if (error) throw error;
+
       toast({
         title: "Success",
         description: "Document deleted successfully"
@@ -63,7 +77,11 @@ export const useDocumentStorage = () => {
   };
 
   const getPublicUrl = (filePath: string) => {
-    return `mock://storage/${filePath}`;
+    const { data } = supabase.storage
+      .from('documents')
+      .getPublicUrl(filePath);
+    
+    return data.publicUrl;
   };
 
   return {

@@ -1,4 +1,3 @@
-
 import { useState, useCallback } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -8,6 +7,10 @@ import { Upload, FileText, CheckCircle, AlertTriangle, ArrowLeft, Eye, Loader2, 
 import { useToast } from '@/hooks/use-toast';
 import { createProcessingSession, progressTracker } from '@/utils/progressTracking';
 import { validateDocumentSecurity, logComplianceEvent } from '@/utils/security';
+import { useDocuments } from '@/hooks/use-documents';
+import { useExtractions } from '@/hooks/use-extractions';
+import { useNarratives } from '@/hooks/use-narratives';
+import { useDocumentStorage } from '@/hooks/use-document-storage';
 import { AuditTrail } from './AuditTrail';
 import { DataExport } from './DataExport';
 
@@ -37,6 +40,11 @@ export const DocumentProcessor = ({ onBack }: DocumentProcessorProps) => {
   const [showAuditTrail, setShowAuditTrail] = useState(false);
   const [showDataExport, setShowDataExport] = useState(false);
   const { toast } = useToast();
+  
+  const { createDocument } = useDocuments();
+  const { createExtraction } = useExtractions();
+  const { createNarrative } = useNarratives();
+  const { uploadDocument } = useDocumentStorage();
 
   const handleDragOver = useCallback((e: React.DragEvent) => {
     e.preventDefault();
@@ -58,11 +66,31 @@ export const DocumentProcessor = ({ onBack }: DocumentProcessorProps) => {
         f.id === fileId ? { ...f, sessionId } : f
       ));
 
-      // Step 1: Security scan
+      // Step 1: Upload file to storage
       setFiles(prev => prev.map(f => 
-        f.id === fileId ? { ...f, status: 'processing', progress: 20 } : f
+        f.id === fileId ? { ...f, status: 'processing', progress: 10 } : f
       ));
 
+      const { path } = await uploadDocument(file);
+
+      // Step 2: Create document record
+      setFiles(prev => prev.map(f => 
+        f.id === fileId ? { ...f, progress: 20 } : f
+      ));
+
+      const document = await createDocument({
+        filename: file.name,
+        file_path: path,
+        file_size: file.size,
+        mime_type: file.type,
+        upload_status: 'completed'
+      });
+
+      setFiles(prev => prev.map(f => 
+        f.id === fileId ? { ...f, documentId: document.id, progress: 30 } : f
+      ));
+
+      // Step 3: Security scan
       const checkpoint1 = progressTracker.createCheckpoint(sessionId, 'security_scan');
       
       const fileContent = await file.text().catch(() => '');
@@ -71,40 +99,37 @@ export const DocumentProcessor = ({ onBack }: DocumentProcessorProps) => {
       await checkpoint1();
 
       setFiles(prev => prev.map(f => 
-        f.id === fileId ? { ...f, securityScan, progress: 40 } : f
+        f.id === fileId ? { ...f, securityScan, progress: 50 } : f
       ));
 
-      // Step 2: Simulate processing
-      const checkpoint2 = progressTracker.createCheckpoint(sessionId, 'file_processed');
+      // Step 4: Create extraction record
+      const checkpoint2 = progressTracker.createCheckpoint(sessionId, 'data_extracted');
+      
+      const extraction = await createExtraction({
+        document_id: document.id,
+        status: 'completed',
+        raw_data: { filename: file.name, size: file.size },
+        processed_data: { security_scan: securityScan }
+      });
+
       await checkpoint2();
 
       setFiles(prev => prev.map(f => 
-        f.id === fileId ? { ...f, progress: 60 } : f
+        f.id === fileId ? { ...f, extractionId: extraction.id, progress: 80 } : f
       ));
 
-      // Step 3: Simulate extraction
-      const checkpoint3 = progressTracker.createCheckpoint(sessionId, 'data_extracted');
-      await checkpoint3();
-
-      setFiles(prev => prev.map(f => 
-        f.id === fileId ? { ...f, progress: 80 } : f
-      ));
-
-      // Step 4: Complete processing
-      const extractionId = `extraction_${Date.now()}`;
-      
+      // Step 5: Complete processing
       setFiles(prev => prev.map(f => 
         f.id === fileId ? { 
           ...f, 
           status: 'completed', 
-          progress: 100,
-          extractionId
+          progress: 100
         } : f
       ));
 
       await logComplianceEvent({
         action: 'document_processed',
-        documentId: fileId,
+        documentId: document.id,
         details: {
           filename: file.name,
           security_scan: securityScan,
@@ -114,7 +139,7 @@ export const DocumentProcessor = ({ onBack }: DocumentProcessorProps) => {
 
       toast({
         title: "Document processed successfully",
-        description: `${file.name} has been processed with security scanning.`,
+        description: `${file.name} has been processed and stored in the database.`,
       });
 
     } catch (error) {
@@ -131,6 +156,29 @@ export const DocumentProcessor = ({ onBack }: DocumentProcessorProps) => {
       toast({
         title: "Processing failed",
         description: error instanceof Error ? error.message : "Unknown error occurred",
+        variant: "destructive"
+      });
+    }
+  };
+
+  const handleGenerateNarrative = async (extractionId: string) => {
+    try {
+      await createNarrative({
+        extraction_id: extractionId,
+        title: 'Case Narrative',
+        content: 'AI-generated narrative content based on extracted data...',
+        status: 'completed'
+      });
+
+      toast({
+        title: "Narrative generated",
+        description: "Case narrative has been generated and saved to the database.",
+      });
+    } catch (error) {
+      console.error('Narrative generation error:', error);
+      toast({
+        title: "Generation failed",
+        description: "Failed to generate narrative",
         variant: "destructive"
       });
     }
@@ -178,22 +226,6 @@ export const DocumentProcessor = ({ onBack }: DocumentProcessorProps) => {
         const fileId = newFiles[index].id;
         processFile(file, fileId);
       });
-  };
-
-  const handleGenerateNarrative = async (extractionId: string) => {
-    try {
-      toast({
-        title: "Narrative generated",
-        description: "Case narrative has been generated successfully.",
-      });
-    } catch (error) {
-      console.error('Narrative generation error:', error);
-      toast({
-        title: "Generation failed",
-        description: "Failed to generate narrative",
-        variant: "destructive"
-      });
-    }
   };
 
   const getStatusIcon = (status: ProcessingFile['status']) => {
@@ -281,7 +313,7 @@ export const DocumentProcessor = ({ onBack }: DocumentProcessorProps) => {
               Drop PDF files here or click to browse
             </h3>
             <p className="text-gray-600 mb-4">
-              Processing with security scanning and compliance logging
+              Files will be stored in Supabase with security scanning and compliance logging
             </p>
             <input
               type="file"
@@ -392,22 +424,22 @@ export const DocumentProcessor = ({ onBack }: DocumentProcessorProps) => {
             <div className="flex items-start space-x-3">
               <div className="w-8 h-8 bg-blue-600 rounded-full flex items-center justify-center text-white font-medium">1</div>
               <div>
-                <h4 className="font-medium text-gray-900">Security Scan</h4>
-                <p className="text-sm text-gray-600">PHI/PII detection and risk assessment</p>
+                <h4 className="font-medium text-gray-900">Upload & Store</h4>
+                <p className="text-sm text-gray-600">Secure file upload to Supabase storage</p>
               </div>
             </div>
             <div className="flex items-start space-x-3">
               <div className="w-8 h-8 bg-blue-600 rounded-full flex items-center justify-center text-white font-medium">2</div>
               <div>
-                <h4 className="font-medium text-gray-900">AI Extraction</h4>
-                <p className="text-sm text-gray-600">Intelligent data extraction from PDFs</p>
+                <h4 className="font-medium text-gray-900">Security Scan</h4>
+                <p className="text-sm text-gray-600">PHI/PII detection and risk assessment</p>
               </div>
             </div>
             <div className="flex items-start space-x-3">
               <div className="w-8 h-8 bg-blue-600 rounded-full flex items-center justify-center text-white font-medium">3</div>
               <div>
-                <h4 className="font-medium text-gray-900">Smart Analysis</h4>
-                <p className="text-sm text-gray-600">AI-powered content analysis</p>
+                <h4 className="font-medium text-gray-900">AI Extraction</h4>
+                <p className="text-sm text-gray-600">Data extraction and analysis</p>
               </div>
             </div>
             <div className="flex items-start space-x-3">
