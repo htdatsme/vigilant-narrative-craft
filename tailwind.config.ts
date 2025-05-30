@@ -1,3 +1,4 @@
+
 import type { Config } from "tailwindcss";
 
 export default {
@@ -18,6 +19,9 @@ export default {
 			}
 		},
 		extend: {
+			fontFamily: {
+				'inter': ['Inter', 'sans-serif'],
+			},
 			colors: {
 				border: 'hsl(var(--border))',
 				input: 'hsl(var(--input))',
@@ -51,6 +55,14 @@ export default {
 				card: {
 					DEFAULT: 'hsl(var(--card))',
 					foreground: 'hsl(var(--card-foreground))'
+				},
+				// Medical color scheme
+				medical: {
+					blue: '#2C5282',
+					gray: '#E2E8F0',
+					success: '#48BB78',
+					warning: '#F56565',
+					background: '#F7FAFC'
 				},
 				sidebar: {
 					DEFAULT: 'hsl(var(--sidebar-background))',
