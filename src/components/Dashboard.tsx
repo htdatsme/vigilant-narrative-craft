@@ -36,12 +36,12 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
   if (!isConfigured) {
     return (
       <div className="space-y-6">
-        <Card className="border-medical-teal/20">
+        <Card className="border-orange-200 bg-orange-50">
           <CardHeader>
             <div className="flex items-center space-x-3">
-              <AlertTriangle className="w-6 h-6 text-medical-teal" />
+              <AlertTriangle className="w-6 h-6 text-orange-600" />
               <div>
-                <CardTitle className="text-medical-text">Setup Required</CardTitle>
+                <CardTitle className="text-gray-900">Setup Required</CardTitle>
                 <CardDescription>
                   Configure your API credentials to start processing documents
                 </CardDescription>
@@ -49,7 +49,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
             </div>
           </CardHeader>
           <CardContent>
-            <p className="text-muted-foreground mb-4">
+            <p className="text-gray-700 mb-4">
               You need to configure Parseur AI and OpenAI API credentials before you can process Canada Vigilance reports.
             </p>
             <Button 

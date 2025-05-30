@@ -251,7 +251,7 @@ export const DocumentProcessor = ({ onBack }: DocumentProcessorProps) => {
         </CardHeader>
         <CardContent>
           <div
-            className={`border-2 border-dashed rounded-lg p-8 text-center transition-colors ${
+            className={`border-2 border-dashed rounded-lg p-8 text-center transition-colors bg-white ${
               isDragOver 
                 ? 'border-medical-blue bg-blue-50' 
                 : 'border-gray-300 hover:border-medical-blue'
@@ -294,7 +294,7 @@ export const DocumentProcessor = ({ onBack }: DocumentProcessorProps) => {
           <CardContent>
             <div className="space-y-4">
               {files.map((file) => (
-                <div key={file.id} className="border rounded-lg p-4 bg-gray-50">
+                <div key={file.id} className="border rounded-lg p-4 bg-white">
                   <div className="flex items-center justify-between mb-3">
                     <div className="flex items-center space-x-3">
                       {getStatusIcon(file.status)}
@@ -304,7 +304,7 @@ export const DocumentProcessor = ({ onBack }: DocumentProcessorProps) => {
                           {(file.size / 1024 / 1024).toFixed(2)} MB • {getStatusText(file.status)}
                         </p>
                         {file.error && (
-                          <p className="text-sm text-medical-warning mt-1">{file.error}</p>
+                          <p className="text-sm text-red-600 mt-1">{file.error}</p>
                         )}
                       </div>
                     </div>
@@ -320,7 +320,7 @@ export const DocumentProcessor = ({ onBack }: DocumentProcessorProps) => {
                           file.status === 'completed' 
                             ? 'bg-medical-success text-white'
                             : file.status === 'error'
-                            ? 'bg-medical-warning text-white'
+                            ? 'bg-red-500 text-white'
                             : 'bg-medical-blue text-white'
                         }
                       >

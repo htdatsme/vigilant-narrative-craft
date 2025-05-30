@@ -55,8 +55,8 @@
     --popover: 45 55 72;
     --popover-foreground: 247 250 252;
 
-    --primary: 144 205 244;
-    --primary-foreground: 26 32 44;
+    --primary: 49 151 149; /* teal in dark mode */
+    --primary-foreground: 255 255 255;
 
     --secondary: 74 85 104;
     --secondary-foreground: 247 250 252;
@@ -72,16 +72,16 @@
 
     --border: 74 85 104;
     --input: 74 85 104;
-    --ring: 144 205 244;
+    --ring: 49 151 149;
     
     --sidebar-background: 45 55 72;
     --sidebar-foreground: 247 250 252;
-    --sidebar-primary: 144 205 244;
-    --sidebar-primary-foreground: 26 32 44;
+    --sidebar-primary: 49 151 149;
+    --sidebar-primary-foreground: 255 255 255;
     --sidebar-accent: 74 85 104;
     --sidebar-accent-foreground: 247 250 252;
     --sidebar-border: 74 85 104;
-    --sidebar-ring: 144 205 244;
+    --sidebar-ring: 49 151 149;
   }
 }
 
