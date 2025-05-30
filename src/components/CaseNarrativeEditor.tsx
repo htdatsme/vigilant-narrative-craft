@@ -47,7 +47,7 @@ The patient discontinued the suspected medication and symptoms began to improve 
 
   const getStatusBadge = (status: string) => {
     const variants = {
-      draft: 'bg-yellow-500 text-white',
+      draft: 'bg-orange-500 text-white',
       review: 'bg-blue-500 text-white',
       completed: 'bg-medical-success text-white'
     };
@@ -57,7 +57,7 @@ The patient discontinued the suspected medication and symptoms began to improve 
   const getPriorityBadge = (priority: string) => {
     const variants = {
       high: 'bg-medical-warning text-white',
-      medium: 'bg-yellow-500 text-white',
+      medium: 'bg-orange-500 text-white',
       low: 'bg-gray-400 text-white'
     };
     return variants[priority as keyof typeof variants] || variants.low;
@@ -68,7 +68,7 @@ The patient discontinued the suspected medication and symptoms began to improve 
       case 'passed':
         return <CheckCircle className="w-4 h-4 text-medical-success" />;
       case 'warning':
-        return <AlertTriangle className="w-4 h-4 text-yellow-500" />;
+        return <AlertTriangle className="w-4 h-4 text-orange-500" />;
       case 'failed':
         return <AlertTriangle className="w-4 h-4 text-medical-warning" />;
       default:

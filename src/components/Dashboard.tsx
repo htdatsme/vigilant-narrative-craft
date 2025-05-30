@@ -31,7 +31,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
       case 'completed':
         return <CheckCircle className="w-4 h-4 text-medical-success" />;
       case 'processing':
-        return <Clock className="w-4 h-4 text-yellow-500" />;
+        return <Clock className="w-4 h-4 text-blue-500" />;
       case 'error':
         return <AlertTriangle className="w-4 h-4 text-medical-warning" />;
       default:
@@ -42,7 +42,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
   const getStatusBadge = (status: string) => {
     const variants = {
       completed: 'bg-medical-success text-white',
-      processing: 'bg-yellow-500 text-white',
+      processing: 'bg-blue-500 text-white',
       error: 'bg-medical-warning text-white',
       pending: 'bg-gray-400 text-white'
     };
@@ -96,10 +96,10 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Pending</CardTitle>
-            <Clock className="h-4 w-4 text-yellow-500" />
+            <Clock className="h-4 w-4 text-blue-500" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-yellow-600">{stats.pending}</div>
+            <div className="text-2xl font-bold text-blue-600">{stats.pending}</div>
             <p className="text-xs text-muted-foreground">In queue</p>
           </CardContent>
         </Card>
