@@ -19,7 +19,7 @@ export const Header = ({ currentView, onNavigate }: HeaderProps) => {
                 <FileText className="w-5 h-5 text-white" />
               </div>
               <div>
-                <h1 className="text-xl font-semibold text-medical-blue">HealthWatch Pro</h1>
+                <h1 className="text-xl font-semibold text-medical-blue">Simplify Canvig</h1>
                 <p className="text-sm text-gray-600">Adverse Event Processing</p>
               </div>
             </div>

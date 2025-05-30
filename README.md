@@ -1,5 +1,4 @@
-
-# HealthWatch Pro - AI-Powered Healthcare Document Processing
+# Simplify Canvig - AI-Powered Healthcare Document Processing
 
 [![Lovable](https://img.shields.io/badge/Built%20with-Lovable-ff5722.svg)](https://lovable.dev)
 [![React](https://img.shields.io/badge/React-18.3.1-blue.svg)](https://reactjs.org/)
@@ -8,7 +7,7 @@
 
 ## Overview
 
-HealthWatch Pro is a comprehensive AI-powered application designed for processing Canada Vigilance adverse event reports. The application provides secure document processing, data extraction, narrative generation, and comprehensive audit trails while maintaining strict healthcare compliance standards.
+Simplify Canvig is a comprehensive AI-powered application designed for processing Canada Vigilance adverse event reports. The application provides secure document processing, data extraction, narrative generation, and comprehensive audit trails while maintaining strict healthcare compliance standards.
 
 ## 🚀 Features
 
@@ -102,7 +101,7 @@ src/
 1. **Clone the repository**
    ```bash
    git clone <YOUR_GIT_URL>
-   cd healthwatch-pro
+   cd simplify-canvig
    ```
 
 2. **Install dependencies**
