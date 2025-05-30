@@ -6,7 +6,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Settings, Key, TestTube, CheckCircle, AlertTriangle } from 'lucide-react';
+import { Settings, Key, TestTube, CheckCircle, AlertTriangle, Trash2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 
 interface ApiConfigurationProps {
@@ -30,6 +30,28 @@ export const ApiConfiguration = ({ onConfigured }: ApiConfigurationProps) => {
     });
     
     onConfigured();
+  };
+
+  const removeParseurKey = () => {
+    setParseurApiKey('');
+    localStorage.removeItem('parseur_api_key');
+    setTestResults(prev => ({ ...prev, parseur: undefined }));
+    
+    toast({
+      title: "Parseur API key removed",
+      description: "The API key has been removed from storage.",
+    });
+  };
+
+  const removeOpenaiKey = () => {
+    setOpenaiApiKey('');
+    localStorage.removeItem('openai_api_key');
+    setTestResults(prev => ({ ...prev, openai: undefined }));
+    
+    toast({
+      title: "OpenAI API key removed",
+      description: "The API key has been removed from storage.",
+    });
   };
 
   const testParseurConnection = async () => {
@@ -131,14 +153,26 @@ export const ApiConfiguration = ({ onConfigured }: ApiConfigurationProps) => {
             <CardContent className="space-y-4">
               <div>
                 <Label htmlFor="parseur-key">API Key</Label>
-                <Input
-                  id="parseur-key"
-                  type="password"
-                  value={parseurApiKey}
-                  onChange={(e) => setParseurApiKey(e.target.value)}
-                  placeholder="Enter your Parseur API key"
-                  className="bg-white border-gray-300"
-                />
+                <div className="flex space-x-2">
+                  <Input
+                    id="parseur-key"
+                    type="password"
+                    value={parseurApiKey}
+                    onChange={(e) => setParseurApiKey(e.target.value)}
+                    placeholder="Enter your Parseur API key"
+                    className="bg-white border-gray-300 flex-1"
+                  />
+                  {parseurApiKey && (
+                    <Button 
+                      onClick={removeParseurKey} 
+                      variant="outline"
+                      size="icon"
+                      className="text-red-600 hover:text-red-700"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </Button>
+                  )}
+                </div>
               </div>
               <Button 
                 onClick={testParseurConnection} 
@@ -167,14 +201,26 @@ export const ApiConfiguration = ({ onConfigured }: ApiConfigurationProps) => {
             <CardContent className="space-y-4">
               <div>
                 <Label htmlFor="openai-key">API Key</Label>
-                <Input
-                  id="openai-key"
-                  type="password"
-                  value={openaiApiKey}
-                  onChange={(e) => setOpenaiApiKey(e.target.value)}
-                  placeholder="Enter your OpenAI API key"
-                  className="bg-white border-gray-300"
-                />
+                <div className="flex space-x-2">
+                  <Input
+                    id="openai-key"
+                    type="password"
+                    value={openaiApiKey}
+                    onChange={(e) => setOpenaiApiKey(e.target.value)}
+                    placeholder="Enter your OpenAI API key"
+                    className="bg-white border-gray-300 flex-1"
+                  />
+                  {openaiApiKey && (
+                    <Button 
+                      onClick={removeOpenaiKey} 
+                      variant="outline"
+                      size="icon"
+                      className="text-red-600 hover:text-red-700"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </Button>
+                  )}
+                </div>
               </div>
               <Button 
                 onClick={testOpenAIConnection} 

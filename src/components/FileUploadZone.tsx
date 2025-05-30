@@ -27,7 +27,7 @@ export const FileUploadZone = ({
   };
 
   return (
-    <Card>
+    <Card className="bg-white">
       <CardHeader>
         <CardTitle>Upload Documents</CardTitle>
         <CardDescription>
@@ -39,7 +39,7 @@ export const FileUploadZone = ({
           className={`border-2 border-dashed rounded-lg p-8 text-center transition-colors ${
             isDragOver 
               ? 'border-blue-500 bg-blue-50' 
-              : 'border-gray-300 hover:border-blue-500'
+              : 'border-gray-300 hover:border-blue-500 bg-gray-50'
           }`}
           onDragOver={onDragOver}
           onDragLeave={onDragLeave}

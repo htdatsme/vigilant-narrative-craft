@@ -3,7 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 
 export const ProcessingPipeline = () => {
   return (
-    <Card>
+    <Card className="bg-white">
       <CardHeader>
         <CardTitle>Processing Pipeline</CardTitle>
       </CardHeader>
