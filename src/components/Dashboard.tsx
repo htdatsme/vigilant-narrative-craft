@@ -1,9 +1,10 @@
 
+import { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Progress } from '@/components/ui/progress';
 import { Badge } from '@/components/ui/badge';
-import { Upload, FileText, CheckCircle, AlertTriangle, Clock } from 'lucide-react';
+import { Upload, FileText, Settings, AlertTriangle } from 'lucide-react';
+import { ApiConfiguration } from './ApiConfiguration';
 import type { AppView } from '@/pages/Index';
 
 interface DashboardProps {
@@ -11,50 +12,65 @@ interface DashboardProps {
 }
 
 export const Dashboard = ({ onNavigate }: DashboardProps) => {
-  const stats = {
-    totalDocuments: 156,
-    processed: 142,
-    pending: 8,
-    errors: 6,
-    successRate: 91.0
+  const [isConfigured, setIsConfigured] = useState(false);
+  const [showConfig, setShowConfig] = useState(false);
+
+  useEffect(() => {
+    // Check if APIs are configured
+    const parseurKey = localStorage.getItem('parseur_api_key');
+    const parseurTemplate = localStorage.getItem('parseur_template');
+    const openaiKey = localStorage.getItem('openai_api_key');
+    
+    setIsConfigured(!!(parseurKey && parseurTemplate && openaiKey));
+  }, []);
+
+  const handleConfigured = () => {
+    setIsConfigured(true);
+    setShowConfig(false);
   };
 
-  const recentDocuments = [
-    { id: 'CV-2024-001', name: 'Adverse_Event_Report_001.pdf', status: 'completed', date: '2024-01-15' },
-    { id: 'CV-2024-002', name: 'Canada_Vigilance_002.pdf', status: 'processing', date: '2024-01-15' },
-    { id: 'CV-2024-003', name: 'AE_Report_003.pdf', status: 'error', date: '2024-01-15' },
-    { id: 'CV-2024-004', name: 'Vigilance_Report_004.pdf', status: 'pending', date: '2024-01-15' },
-  ];
+  if (showConfig) {
+    return <ApiConfiguration onConfigured={handleConfigured} />;
+  }
 
-  const getStatusIcon = (status: string) => {
-    switch (status) {
-      case 'completed':
-        return <CheckCircle className="w-4 h-4 text-medical-success" />;
-      case 'processing':
-        return <Clock className="w-4 h-4 text-blue-500" />;
-      case 'error':
-        return <AlertTriangle className="w-4 h-4 text-medical-warning" />;
-      default:
-        return <Clock className="w-4 h-4 text-gray-400" />;
-    }
-  };
-
-  const getStatusBadge = (status: string) => {
-    const variants = {
-      completed: 'bg-medical-success text-white',
-      processing: 'bg-blue-500 text-white',
-      error: 'bg-medical-warning text-white',
-      pending: 'bg-gray-400 text-white'
-    };
-    return variants[status as keyof typeof variants] || variants.pending;
-  };
+  if (!isConfigured) {
+    return (
+      <div className="space-y-6">
+        <Card className="border-medical-warning/20">
+          <CardHeader>
+            <div className="flex items-center space-x-3">
+              <AlertTriangle className="w-6 h-6 text-medical-warning" />
+              <div>
+                <CardTitle className="text-medical-text">Setup Required</CardTitle>
+                <CardDescription>
+                  Configure your API credentials to start processing documents
+                </CardDescription>
+              </div>
+            </div>
+          </CardHeader>
+          <CardContent>
+            <p className="text-muted-foreground mb-4">
+              You need to configure Parseur AI and OpenAI API credentials before you can process Canada Vigilance reports.
+            </p>
+            <Button 
+              onClick={() => setShowConfig(true)}
+              className="bg-medical-blue hover:bg-blue-700"
+            >
+              <Settings className="w-4 h-4 mr-2" />
+              Configure APIs
+            </Button>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
       {/* Welcome Section */}
-      <div className="bg-white rounded-lg p-6 border border-medical-gray">
-        <h2 className="text-2xl font-semibold text-medical-blue mb-2">Welcome to HealthWatch Pro</h2>
-        <p className="text-gray-600 mb-4">
+      <div className="bg-white rounded-lg p-6 border border-gray-200 shadow-sm">
+        <h2 className="text-2xl font-semibold text-medical-text mb-2">Welcome to HealthWatch Pro</h2>
+        <p className="text-muted-foreground mb-4">
           Process Canada Vigilance adverse event reports with AI-powered extraction and ICSR compliance.
         </p>
         <div className="flex space-x-3">
@@ -66,78 +82,60 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
             <FileText className="w-4 h-4 mr-2" />
             Create Case Narrative
           </Button>
+          <Button variant="outline" onClick={() => setShowConfig(true)}>
+            <Settings className="w-4 h-4 mr-2" />
+            API Settings
+          </Button>
         </div>
       </div>
 
-      {/* Statistics Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Documents</CardTitle>
-            <FileText className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-medical-blue">{stats.totalDocuments}</div>
-            <p className="text-xs text-muted-foreground">This month</p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Processed</CardTitle>
-            <CheckCircle className="h-4 w-4 text-medical-success" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-medical-success">{stats.processed}</div>
-            <p className="text-xs text-muted-foreground">Successfully completed</p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Pending</CardTitle>
-            <Clock className="h-4 w-4 text-blue-500" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-blue-600">{stats.pending}</div>
-            <p className="text-xs text-muted-foreground">In queue</p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Success Rate</CardTitle>
-            <AlertTriangle className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-medical-blue">{stats.successRate}%</div>
-            <Progress value={stats.successRate} className="mt-2" />
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Recent Documents */}
+      {/* Getting Started */}
       <Card>
         <CardHeader>
-          <CardTitle>Recent Documents</CardTitle>
-          <CardDescription>Latest adverse event reports processed through the system</CardDescription>
+          <CardTitle className="text-medical-text">Getting Started</CardTitle>
+          <CardDescription>Follow these steps to process your first document</CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="space-y-3">
-            {recentDocuments.map((doc) => (
-              <div key={doc.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-                <div className="flex items-center space-x-3">
-                  {getStatusIcon(doc.status)}
-                  <div>
-                    <p className="font-medium text-medical-blue">{doc.name}</p>
-                    <p className="text-sm text-gray-600">ID: {doc.id} • {doc.date}</p>
-                  </div>
-                </div>
-                <Badge className={getStatusBadge(doc.status)}>
-                  {doc.status.charAt(0).toUpperCase() + doc.status.slice(1)}
-                </Badge>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div className="flex items-start space-x-3">
+              <div className="w-8 h-8 bg-medical-blue rounded-full flex items-center justify-center text-white font-medium">1</div>
+              <div>
+                <h4 className="font-medium text-medical-text">Upload PDF</h4>
+                <p className="text-sm text-muted-foreground">Upload Canada Vigilance adverse event reports in PDF format</p>
+                <Badge className="mt-2 bg-medical-success text-white">Configured</Badge>
               </div>
-            ))}
+            </div>
+            <div className="flex items-start space-x-3">
+              <div className="w-8 h-8 bg-medical-blue rounded-full flex items-center justify-center text-white font-medium">2</div>
+              <div>
+                <h4 className="font-medium text-medical-text">AI Extraction</h4>
+                <p className="text-sm text-muted-foreground">Parseur AI extracts structured data from the PDF documents</p>
+                <Badge className="mt-2 bg-medical-success text-white">Ready</Badge>
+              </div>
+            </div>
+            <div className="flex items-start space-x-3">
+              <div className="w-8 h-8 bg-medical-blue rounded-full flex items-center justify-center text-white font-medium">3</div>
+              <div>
+                <h4 className="font-medium text-medical-text">Generate Narratives</h4>
+                <p className="text-sm text-muted-foreground">Create E2B R3 compliant case narratives for submission</p>
+                <Badge className="mt-2 bg-medical-success text-white">Ready</Badge>
+              </div>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Recent Activity */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-medical-text">Recent Activity</CardTitle>
+          <CardDescription>Your document processing activity will appear here</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="text-center py-8">
+            <FileText className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
+            <p className="text-muted-foreground">No documents processed yet</p>
+            <p className="text-sm text-muted-foreground mt-2">Upload your first Canada Vigilance report to get started</p>
           </div>
         </CardContent>
       </Card>

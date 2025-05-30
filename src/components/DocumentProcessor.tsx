@@ -4,7 +4,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import { Badge } from '@/components/ui/badge';
-import { Upload, FileText, CheckCircle, AlertTriangle, ArrowLeft, Eye } from 'lucide-react';
+import { Upload, FileText, CheckCircle, AlertTriangle, ArrowLeft, Eye, Loader2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 
 interface DocumentProcessorProps {
@@ -15,9 +15,10 @@ interface ProcessingFile {
   id: string;
   name: string;
   size: number;
-  status: 'uploading' | 'processing' | 'extracting' | 'completed' | 'error';
+  status: 'uploading' | 'parsing' | 'analyzing' | 'completed' | 'error';
   progress: number;
   extractedData?: any;
+  error?: string;
 }
 
 export const DocumentProcessor = ({ onBack }: DocumentProcessorProps) => {
@@ -35,24 +36,125 @@ export const DocumentProcessor = ({ onBack }: DocumentProcessorProps) => {
     setIsDragOver(false);
   }, []);
 
-  const simulateProcessing = (fileId: string) => {
-    const updateProgress = (progress: number, status: ProcessingFile['status']) => {
-      setFiles(prev => prev.map(f => 
-        f.id === fileId ? { ...f, progress, status } : f
-      ));
-    };
+  const processWithParseur = async (file: File, fileId: string) => {
+    const parseurApiKey = localStorage.getItem('parseur_api_key');
+    const parseurTemplate = localStorage.getItem('parseur_template');
 
-    // Simulate processing stages
-    setTimeout(() => updateProgress(25, 'processing'), 500);
-    setTimeout(() => updateProgress(50, 'extracting'), 1500);
-    setTimeout(() => updateProgress(75, 'extracting'), 2500);
-    setTimeout(() => {
-      updateProgress(100, 'completed');
+    if (!parseurApiKey || !parseurTemplate) {
+      throw new Error('Parseur API credentials not configured');
+    }
+
+    // Update status to parsing
+    setFiles(prev => prev.map(f => 
+      f.id === fileId ? { ...f, status: 'parsing', progress: 25 } : f
+    ));
+
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('template_id', parseurTemplate);
+
+    const response = await fetch('https://api.parseur.com/parser/upload', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Token ${parseurApiKey}`,
+      },
+      body: formData
+    });
+
+    if (!response.ok) {
+      throw new Error('Failed to upload to Parseur');
+    }
+
+    const result = await response.json();
+    return result;
+  };
+
+  const analyzeWithOpenAI = async (extractedData: any, fileId: string) => {
+    const openaiApiKey = localStorage.getItem('openai_api_key');
+
+    if (!openaiApiKey) {
+      throw new Error('OpenAI API key not configured');
+    }
+
+    // Update status to analyzing
+    setFiles(prev => prev.map(f => 
+      f.id === fileId ? { ...f, status: 'analyzing', progress: 75 } : f
+    ));
+
+    const response = await fetch('https://api.openai.com/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${openaiApiKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        model: 'gpt-4o-mini',
+        messages: [
+          {
+            role: 'system',
+            content: 'You are a medical data analyst specializing in adverse event reports. Analyze the extracted data and structure it according to E2B R3 format for ICSR submissions.'
+          },
+          {
+            role: 'user',
+            content: `Please analyze this Canada Vigilance adverse event data and structure it for E2B R3 format: ${JSON.stringify(extractedData)}`
+          }
+        ],
+        temperature: 0.1,
+        max_tokens: 2000
+      })
+    });
+
+    if (!response.ok) {
+      throw new Error('Failed to analyze with OpenAI');
+    }
+
+    const result = await response.json();
+    return result.choices[0].message.content;
+  };
+
+  const processFile = async (file: File, fileId: string) => {
+    try {
+      console.log(`Starting processing for file: ${file.name}`);
+      
+      // Step 1: Extract with Parseur
+      const extractedData = await processWithParseur(file, fileId);
+      console.log('Parseur extraction completed:', extractedData);
+
+      // Step 2: Analyze with OpenAI
+      const analysis = await analyzeWithOpenAI(extractedData, fileId);
+      console.log('OpenAI analysis completed');
+
+      // Step 3: Complete processing
+      setFiles(prev => prev.map(f => 
+        f.id === fileId ? { 
+          ...f, 
+          status: 'completed', 
+          progress: 100,
+          extractedData: { raw: extractedData, analysis }
+        } : f
+      ));
+
       toast({
         title: "Document processed successfully",
-        description: "PDF extraction completed and data validated.",
+        description: "PDF extraction and analysis completed.",
       });
-    }, 3500);
+
+    } catch (error) {
+      console.error('Processing error:', error);
+      setFiles(prev => prev.map(f => 
+        f.id === fileId ? { 
+          ...f, 
+          status: 'error', 
+          error: error instanceof Error ? error.message : 'Unknown error'
+        } : f
+      ));
+      
+      toast({
+        title: "Processing failed",
+        description: error instanceof Error ? error.message : "Unknown error occurred",
+        variant: "destructive"
+      });
+    }
   };
 
   const handleDrop = useCallback((e: React.DragEvent) => {
@@ -91,9 +193,13 @@ export const DocumentProcessor = ({ onBack }: DocumentProcessorProps) => {
 
     setFiles(prev => [...prev, ...newFiles]);
     
-    newFiles.forEach(file => {
-      simulateProcessing(file.id);
-    });
+    // Process each file
+    fileList
+      .filter(file => file.type === 'application/pdf')
+      .forEach((file, index) => {
+        const fileId = newFiles[index].id;
+        processFile(file, fileId);
+      });
   };
 
   const getStatusIcon = (status: ProcessingFile['status']) => {
@@ -102,16 +208,19 @@ export const DocumentProcessor = ({ onBack }: DocumentProcessorProps) => {
         return <CheckCircle className="w-4 h-4 text-medical-success" />;
       case 'error':
         return <AlertTriangle className="w-4 h-4 text-medical-warning" />;
+      case 'parsing':
+      case 'analyzing':
+        return <Loader2 className="w-4 h-4 text-medical-blue animate-spin" />;
       default:
-        return <Upload className="w-4 h-4 text-blue-500" />;
+        return <Upload className="w-4 h-4 text-medical-blue" />;
     }
   };
 
   const getStatusText = (status: ProcessingFile['status']) => {
     switch (status) {
       case 'uploading': return 'Uploading...';
-      case 'processing': return 'Processing PDF...';
-      case 'extracting': return 'Extracting data...';
+      case 'parsing': return 'Extracting with Parseur...';
+      case 'analyzing': return 'Analyzing with AI...';
       case 'completed': return 'Completed';
       case 'error': return 'Error';
       default: return 'Unknown';
@@ -127,15 +236,15 @@ export const DocumentProcessor = ({ onBack }: DocumentProcessorProps) => {
           Back to Dashboard
         </Button>
         <div>
-          <h2 className="text-2xl font-semibold text-medical-blue">Document Processor</h2>
-          <p className="text-gray-600">Upload and process Canada Vigilance adverse event reports</p>
+          <h2 className="text-2xl font-semibold text-medical-text">Document Processor</h2>
+          <p className="text-muted-foreground">Upload and process Canada Vigilance adverse event reports</p>
         </div>
       </div>
 
       {/* Upload Area */}
       <Card>
         <CardHeader>
-          <CardTitle>Upload Documents</CardTitle>
+          <CardTitle className="text-medical-text">Upload Documents</CardTitle>
           <CardDescription>
             Upload Canada Vigilance PDF reports for AI-powered data extraction and ICSR conversion
           </CardDescription>
@@ -145,17 +254,17 @@ export const DocumentProcessor = ({ onBack }: DocumentProcessorProps) => {
             className={`border-2 border-dashed rounded-lg p-8 text-center transition-colors ${
               isDragOver 
                 ? 'border-medical-blue bg-blue-50' 
-                : 'border-medical-gray hover:border-medical-blue'
+                : 'border-gray-300 hover:border-medical-blue'
             }`}
             onDragOver={handleDragOver}
             onDragLeave={handleDragLeave}
             onDrop={handleDrop}
           >
             <Upload className="w-12 h-12 text-medical-blue mx-auto mb-4" />
-            <h3 className="text-lg font-medium text-medical-blue mb-2">
+            <h3 className="text-lg font-medium text-medical-text mb-2">
               Drop PDF files here or click to browse
             </h3>
-            <p className="text-gray-600 mb-4">
+            <p className="text-muted-foreground mb-4">
               Supports Canada Vigilance adverse event reports in PDF format
             </p>
             <input
@@ -179,7 +288,7 @@ export const DocumentProcessor = ({ onBack }: DocumentProcessorProps) => {
       {files.length > 0 && (
         <Card>
           <CardHeader>
-            <CardTitle>Processing Queue</CardTitle>
+            <CardTitle className="text-medical-text">Processing Queue</CardTitle>
             <CardDescription>Track the progress of your document processing</CardDescription>
           </CardHeader>
           <CardContent>
@@ -190,10 +299,13 @@ export const DocumentProcessor = ({ onBack }: DocumentProcessorProps) => {
                     <div className="flex items-center space-x-3">
                       {getStatusIcon(file.status)}
                       <div>
-                        <p className="font-medium text-medical-blue">{file.name}</p>
-                        <p className="text-sm text-gray-600">
+                        <p className="font-medium text-medical-text">{file.name}</p>
+                        <p className="text-sm text-muted-foreground">
                           {(file.size / 1024 / 1024).toFixed(2)} MB • {getStatusText(file.status)}
                         </p>
+                        {file.error && (
+                          <p className="text-sm text-medical-warning mt-1">{file.error}</p>
+                        )}
                       </div>
                     </div>
                     <div className="flex items-center space-x-2">
@@ -209,7 +321,7 @@ export const DocumentProcessor = ({ onBack }: DocumentProcessorProps) => {
                             ? 'bg-medical-success text-white'
                             : file.status === 'error'
                             ? 'bg-medical-warning text-white'
-                            : 'bg-blue-500 text-white'
+                            : 'bg-medical-blue text-white'
                         }
                       >
                         {getStatusText(file.status)}
