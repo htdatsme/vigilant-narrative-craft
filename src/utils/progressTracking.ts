@@ -25,16 +25,23 @@ interface ProgressDetails {
 }
 
 // Type guard to check if data is ProgressDetails
-function isProgressDetails(data: any): data is ProgressDetails {
+function isProgressDetails(data: unknown): data is ProgressDetails {
   return (
-    data &&
+    data !== null &&
     typeof data === 'object' &&
-    typeof data.id === 'string' &&
-    typeof data.current_step === 'string' &&
-    typeof data.total_steps === 'number' &&
-    typeof data.completed_steps === 'number' &&
-    typeof data.status === 'string' &&
-    typeof data.last_checkpoint === 'string'
+    data !== undefined &&
+    'id' in data &&
+    'current_step' in data &&
+    'total_steps' in data &&
+    'completed_steps' in data &&
+    'status' in data &&
+    'last_checkpoint' in data &&
+    typeof (data as any).id === 'string' &&
+    typeof (data as any).current_step === 'string' &&
+    typeof (data as any).total_steps === 'number' &&
+    typeof (data as any).completed_steps === 'number' &&
+    typeof (data as any).status === 'string' &&
+    typeof (data as any).last_checkpoint === 'string'
   );
 }
 
