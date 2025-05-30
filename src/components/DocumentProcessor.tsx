@@ -6,6 +6,10 @@ import { Progress } from '@/components/ui/progress';
 import { Badge } from '@/components/ui/badge';
 import { Upload, FileText, CheckCircle, AlertTriangle, ArrowLeft, Eye, Loader2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { useDocuments } from '@/hooks/use-documents';
+import { useDocumentStorage } from '@/hooks/use-document-storage';
+import { useProcessingLogs } from '@/hooks/use-processing-logs';
+import { supabase } from '@/integrations/supabase/client';
 
 interface DocumentProcessorProps {
   onBack: () => void;
@@ -15,9 +19,10 @@ interface ProcessingFile {
   id: string;
   name: string;
   size: number;
-  status: 'uploading' | 'parsing' | 'analyzing' | 'completed' | 'error';
+  status: 'uploading' | 'processing' | 'completed' | 'error';
   progress: number;
-  extractedData?: any;
+  documentId?: string;
+  extractionId?: string;
   error?: string;
 }
 
@@ -25,6 +30,9 @@ export const DocumentProcessor = ({ onBack }: DocumentProcessorProps) => {
   const [files, setFiles] = useState<ProcessingFile[]>([]);
   const [isDragOver, setIsDragOver] = useState(false);
   const { toast } = useToast();
+  const { createDocument } = useDocuments();
+  const { uploadDocument } = useDocumentStorage();
+  const { createLog } = useProcessingLogs();
 
   const handleDragOver = useCallback((e: React.DragEvent) => {
     e.preventDefault();
@@ -36,111 +44,73 @@ export const DocumentProcessor = ({ onBack }: DocumentProcessorProps) => {
     setIsDragOver(false);
   }, []);
 
-  const processWithParseur = async (file: File, fileId: string) => {
-    const parseurApiKey = localStorage.getItem('parseur_api_key');
-    const parseurTemplate = localStorage.getItem('parseur_template');
-
-    if (!parseurApiKey || !parseurTemplate) {
-      throw new Error('Parseur API credentials not configured');
-    }
-
-    // Update status to parsing
-    setFiles(prev => prev.map(f => 
-      f.id === fileId ? { ...f, status: 'parsing', progress: 25 } : f
-    ));
-
-    const formData = new FormData();
-    formData.append('file', file);
-    formData.append('template_id', parseurTemplate);
-
-    const response = await fetch('https://api.parseur.com/parser/upload', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Token ${parseurApiKey}`,
-      },
-      body: formData
-    });
-
-    if (!response.ok) {
-      throw new Error('Failed to upload to Parseur');
-    }
-
-    const result = await response.json();
-    return result;
-  };
-
-  const analyzeWithOpenAI = async (extractedData: any, fileId: string) => {
-    const openaiApiKey = localStorage.getItem('openai_api_key');
-
-    if (!openaiApiKey) {
-      throw new Error('OpenAI API key not configured');
-    }
-
-    // Update status to analyzing
-    setFiles(prev => prev.map(f => 
-      f.id === fileId ? { ...f, status: 'analyzing', progress: 75 } : f
-    ));
-
-    const response = await fetch('https://api.openai.com/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${openaiApiKey}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        model: 'gpt-4o-mini',
-        messages: [
-          {
-            role: 'system',
-            content: 'You are a medical data analyst specializing in adverse event reports. Analyze the extracted data and structure it according to E2B R3 format for ICSR submissions.'
-          },
-          {
-            role: 'user',
-            content: `Please analyze this Canada Vigilance adverse event data and structure it for E2B R3 format: ${JSON.stringify(extractedData)}`
-          }
-        ],
-        temperature: 0.1,
-        max_tokens: 2000
-      })
-    });
-
-    if (!response.ok) {
-      throw new Error('Failed to analyze with OpenAI');
-    }
-
-    const result = await response.json();
-    return result.choices[0].message.content;
-  };
-
-  const processFile = async (file: File, fileId: string) => {
+  const processFileWithEdgeFunction = async (file: File, fileId: string) => {
     try {
-      console.log(`Starting processing for file: ${file.name}`);
+      console.log(`Starting enhanced processing for file: ${file.name}`);
       
-      // Step 1: Extract with Parseur
-      const extractedData = await processWithParseur(file, fileId);
-      console.log('Parseur extraction completed:', extractedData);
+      // Get current user
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('User not authenticated');
 
-      // Step 2: Analyze with OpenAI
-      const analysis = await analyzeWithOpenAI(extractedData, fileId);
-      console.log('OpenAI analysis completed');
+      // Step 1: Upload file to storage
+      setFiles(prev => prev.map(f => 
+        f.id === fileId ? { ...f, status: 'uploading', progress: 20 } : f
+      ));
 
-      // Step 3: Complete processing
+      const uploadResult = await uploadDocument(file, user.id);
+      console.log('File uploaded to storage:', uploadResult.path);
+
+      // Step 2: Create document record
+      const document = await createDocument({
+        filename: file.name,
+        file_path: uploadResult.path,
+        file_size: file.size,
+        mime_type: file.type,
+        upload_status: 'pending'
+      });
+
+      setFiles(prev => prev.map(f => 
+        f.id === fileId ? { ...f, documentId: document.id, progress: 40 } : f
+      ));
+
+      // Step 3: Process with edge function
+      setFiles(prev => prev.map(f => 
+        f.id === fileId ? { ...f, status: 'processing', progress: 60 } : f
+      ));
+
+      const { data, error } = await supabase.functions.invoke('process-document', {
+        body: {
+          documentId: document.id,
+          filePath: uploadResult.path,
+          filename: file.name
+        }
+      });
+
+      if (error) {
+        throw new Error(error.message || 'Processing failed');
+      }
+
+      if (!data.success) {
+        throw new Error(data.error || 'Processing failed');
+      }
+
+      // Step 4: Complete processing
       setFiles(prev => prev.map(f => 
         f.id === fileId ? { 
           ...f, 
           status: 'completed', 
           progress: 100,
-          extractedData: { raw: extractedData, analysis }
+          extractionId: data.extractionId
         } : f
       ));
 
       toast({
         title: "Document processed successfully",
-        description: "PDF extraction and analysis completed.",
+        description: "PDF extraction and analysis completed using enhanced AI processing.",
       });
 
     } catch (error) {
-      console.error('Processing error:', error);
+      console.error('Enhanced processing error:', error);
       setFiles(prev => prev.map(f => 
         f.id === fileId ? { 
           ...f, 
@@ -193,13 +163,45 @@ export const DocumentProcessor = ({ onBack }: DocumentProcessorProps) => {
 
     setFiles(prev => [...prev, ...newFiles]);
     
-    // Process each file
+    // Process each file with enhanced edge function processing
     fileList
       .filter(file => file.type === 'application/pdf')
       .forEach((file, index) => {
         const fileId = newFiles[index].id;
-        processFile(file, fileId);
+        processFileWithEdgeFunction(file, fileId);
       });
+  };
+
+  const handleGenerateNarrative = async (extractionId: string) => {
+    try {
+      const { data, error } = await supabase.functions.invoke('generate-narrative', {
+        body: {
+          extractionId,
+          template: 'e2b_r3'
+        }
+      });
+
+      if (error) {
+        throw new Error(error.message || 'Narrative generation failed');
+      }
+
+      if (!data.success) {
+        throw new Error(data.error || 'Narrative generation failed');
+      }
+
+      toast({
+        title: "Narrative generated",
+        description: "Case narrative has been generated successfully.",
+      });
+
+    } catch (error) {
+      console.error('Narrative generation error:', error);
+      toast({
+        title: "Generation failed",
+        description: error instanceof Error ? error.message : "Failed to generate narrative",
+        variant: "destructive"
+      });
+    }
   };
 
   const getStatusIcon = (status: ProcessingFile['status']) => {
@@ -208,8 +210,7 @@ export const DocumentProcessor = ({ onBack }: DocumentProcessorProps) => {
         return <CheckCircle className="w-4 h-4 text-medical-success" />;
       case 'error':
         return <AlertTriangle className="w-4 h-4 text-red-600" />;
-      case 'parsing':
-      case 'analyzing':
+      case 'processing':
         return <Loader2 className="w-4 h-4 text-medical-blue animate-spin" />;
       default:
         return <Upload className="w-4 h-4 text-medical-blue" />;
@@ -219,8 +220,7 @@ export const DocumentProcessor = ({ onBack }: DocumentProcessorProps) => {
   const getStatusText = (status: ProcessingFile['status']) => {
     switch (status) {
       case 'uploading': return 'Uploading...';
-      case 'parsing': return 'Extracting with Parseur...';
-      case 'analyzing': return 'Analyzing with AI...';
+      case 'processing': return 'Processing with AI...';
       case 'completed': return 'Completed';
       case 'error': return 'Error';
       default: return 'Unknown';
@@ -236,8 +236,8 @@ export const DocumentProcessor = ({ onBack }: DocumentProcessorProps) => {
           Back to Dashboard
         </Button>
         <div>
-          <h2 className="text-2xl font-semibold text-medical-text">Document Processor</h2>
-          <p className="text-muted-foreground">Upload and process Canada Vigilance adverse event reports</p>
+          <h2 className="text-2xl font-semibold text-medical-text">Enhanced Document Processor</h2>
+          <p className="text-muted-foreground">Upload and process Canada Vigilance adverse event reports with advanced AI processing</p>
         </div>
       </div>
 
@@ -246,7 +246,7 @@ export const DocumentProcessor = ({ onBack }: DocumentProcessorProps) => {
         <CardHeader>
           <CardTitle className="text-medical-text">Upload Documents</CardTitle>
           <CardDescription>
-            Upload Canada Vigilance PDF reports for AI-powered data extraction and ICSR conversion
+            Upload Canada Vigilance PDF reports for enhanced AI-powered data extraction and ICSR conversion
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -265,7 +265,7 @@ export const DocumentProcessor = ({ onBack }: DocumentProcessorProps) => {
               Drop PDF files here or click to browse
             </h3>
             <p className="text-muted-foreground mb-4">
-              Supports Canada Vigilance adverse event reports in PDF format
+              Enhanced processing with Supabase Edge Functions, Parseur AI, and OpenAI integration
             </p>
             <input
               type="file"
@@ -288,8 +288,8 @@ export const DocumentProcessor = ({ onBack }: DocumentProcessorProps) => {
       {files.length > 0 && (
         <Card className="bg-white">
           <CardHeader>
-            <CardTitle className="text-medical-text">Processing Queue</CardTitle>
-            <CardDescription>Track the progress of your document processing</CardDescription>
+            <CardTitle className="text-medical-text">Enhanced Processing Queue</CardTitle>
+            <CardDescription>Track the progress of your document processing with advanced AI capabilities</CardDescription>
           </CardHeader>
           <CardContent>
             <div className="space-y-4">
@@ -309,11 +309,21 @@ export const DocumentProcessor = ({ onBack }: DocumentProcessorProps) => {
                       </div>
                     </div>
                     <div className="flex items-center space-x-2">
-                      {file.status === 'completed' && (
-                        <Button variant="outline" size="sm">
-                          <Eye className="w-4 h-4 mr-2" />
-                          View Data
-                        </Button>
+                      {file.status === 'completed' && file.extractionId && (
+                        <>
+                          <Button variant="outline" size="sm">
+                            <Eye className="w-4 h-4 mr-2" />
+                            View Data
+                          </Button>
+                          <Button 
+                            variant="outline" 
+                            size="sm"
+                            onClick={() => handleGenerateNarrative(file.extractionId!)}
+                          >
+                            <FileText className="w-4 h-4 mr-2" />
+                            Generate Narrative
+                          </Button>
+                        </>
                       )}
                       <Badge 
                         className={
@@ -336,32 +346,39 @@ export const DocumentProcessor = ({ onBack }: DocumentProcessorProps) => {
         </Card>
       )}
 
-      {/* Processing Instructions */}
+      {/* Enhanced Processing Instructions */}
       <Card className="bg-white">
         <CardHeader>
-          <CardTitle className="text-medical-text">Processing Instructions</CardTitle>
+          <CardTitle className="text-medical-text">Enhanced Processing Pipeline</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
             <div className="flex items-start space-x-3">
               <div className="w-8 h-8 bg-medical-blue rounded-full flex items-center justify-center text-white font-medium">1</div>
               <div>
-                <h4 className="font-medium text-medical-text">Upload PDF</h4>
-                <p className="text-sm text-gray-600">Upload Canada Vigilance adverse event reports in PDF format</p>
+                <h4 className="font-medium text-medical-text">Upload & Store</h4>
+                <p className="text-sm text-gray-600">Secure upload to Supabase Storage with metadata tracking</p>
               </div>
             </div>
             <div className="flex items-start space-x-3">
               <div className="w-8 h-8 bg-medical-blue rounded-full flex items-center justify-center text-white font-medium">2</div>
               <div>
                 <h4 className="font-medium text-medical-text">AI Extraction</h4>
-                <p className="text-sm text-gray-600">Parseur AI extracts structured data from the PDF documents</p>
+                <p className="text-sm text-gray-600">Parseur AI extracts structured data from PDF documents</p>
               </div>
             </div>
             <div className="flex items-start space-x-3">
               <div className="w-8 h-8 bg-medical-blue rounded-full flex items-center justify-center text-white font-medium">3</div>
               <div>
-                <h4 className="font-medium text-medical-text">ICSR Ready</h4>
-                <p className="text-sm text-gray-600">Generate E2B R3 compliant case narratives for submission</p>
+                <h4 className="font-medium text-medical-text">Smart Analysis</h4>
+                <p className="text-sm text-gray-600">OpenAI analyzes and structures data for E2B R3 compliance</p>
+              </div>
+            </div>
+            <div className="flex items-start space-x-3">
+              <div className="w-8 h-8 bg-medical-blue rounded-full flex items-center justify-center text-white font-medium">4</div>
+              <div>
+                <h4 className="font-medium text-medical-text">Generate Narratives</h4>
+                <p className="text-sm text-gray-600">AI-powered case narrative generation for regulatory submission</p>
               </div>
             </div>
           </div>
