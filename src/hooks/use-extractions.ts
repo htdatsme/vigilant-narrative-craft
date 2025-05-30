@@ -43,12 +43,10 @@ export const useExtractions = (documentId?: string) => {
 
   const createExtraction = async (extraction: Omit<ExtractionInsert, 'user_id'>) => {
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error('User not authenticated');
-
+      // Use anonymous user ID for demo purposes
       const { data, error } = await supabase
         .from('extractions')
-        .insert({ ...extraction, user_id: user.id })
+        .insert({ ...extraction, user_id: 'anonymous' })
         .select()
         .single();
 

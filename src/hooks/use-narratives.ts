@@ -43,12 +43,10 @@ export const useNarratives = (extractionId?: string) => {
 
   const createNarrative = async (narrative: Omit<NarrativeInsert, 'user_id'>) => {
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error('User not authenticated');
-
+      // Use anonymous user ID for demo purposes
       const { data, error } = await supabase
         .from('narratives')
-        .insert({ ...narrative, user_id: user.id })
+        .insert({ ...narrative, user_id: 'anonymous' })
         .select()
         .single();
 
