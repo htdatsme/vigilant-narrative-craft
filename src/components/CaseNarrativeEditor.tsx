@@ -87,7 +87,7 @@ export const CaseNarrativeEditor = ({ onBack }: CaseNarrativeEditorProps) => {
       </div>
 
       {/* Narrative Editor */}
-      <Card>
+      <Card className="bg-white">
         <CardHeader>
           <div className="flex justify-between items-center">
             <div>
@@ -128,7 +128,7 @@ export const CaseNarrativeEditor = ({ onBack }: CaseNarrativeEditorProps) => {
               id="narrative"
               value={narrative}
               onChange={(e) => setNarrative(e.target.value)}
-              className="min-h-[400px] font-mono text-sm"
+              className="min-h-[400px] font-mono text-sm bg-white"
               placeholder="Enter the detailed case narrative or click 'Generate Template' to create a starting template..."
             />
           </div>
@@ -142,7 +142,7 @@ export const CaseNarrativeEditor = ({ onBack }: CaseNarrativeEditorProps) => {
 
       {/* Getting Started */}
       {!narrative && (
-        <Card>
+        <Card className="bg-white">
           <CardHeader>
             <CardTitle className="text-medical-text">Getting Started</CardTitle>
             <CardDescription>Create your first case narrative</CardDescription>

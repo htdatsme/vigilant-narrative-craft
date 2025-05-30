@@ -207,7 +207,7 @@ export const DocumentProcessor = ({ onBack }: DocumentProcessorProps) => {
       case 'completed':
         return <CheckCircle className="w-4 h-4 text-medical-success" />;
       case 'error':
-        return <AlertTriangle className="w-4 h-4 text-medical-warning" />;
+        return <AlertTriangle className="w-4 h-4 text-red-600" />;
       case 'parsing':
       case 'analyzing':
         return <Loader2 className="w-4 h-4 text-medical-blue animate-spin" />;
@@ -242,7 +242,7 @@ export const DocumentProcessor = ({ onBack }: DocumentProcessorProps) => {
       </div>
 
       {/* Upload Area */}
-      <Card>
+      <Card className="bg-white">
         <CardHeader>
           <CardTitle className="text-medical-text">Upload Documents</CardTitle>
           <CardDescription>
@@ -286,7 +286,7 @@ export const DocumentProcessor = ({ onBack }: DocumentProcessorProps) => {
 
       {/* Processing Queue */}
       {files.length > 0 && (
-        <Card>
+        <Card className="bg-white">
           <CardHeader>
             <CardTitle className="text-medical-text">Processing Queue</CardTitle>
             <CardDescription>Track the progress of your document processing</CardDescription>
@@ -337,30 +337,30 @@ export const DocumentProcessor = ({ onBack }: DocumentProcessorProps) => {
       )}
 
       {/* Processing Instructions */}
-      <Card>
+      <Card className="bg-white">
         <CardHeader>
-          <CardTitle>Processing Instructions</CardTitle>
+          <CardTitle className="text-medical-text">Processing Instructions</CardTitle>
         </CardHeader>
         <CardContent>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div className="flex items-start space-x-3">
               <div className="w-8 h-8 bg-medical-blue rounded-full flex items-center justify-center text-white font-medium">1</div>
               <div>
-                <h4 className="font-medium text-medical-blue">Upload PDF</h4>
+                <h4 className="font-medium text-medical-text">Upload PDF</h4>
                 <p className="text-sm text-gray-600">Upload Canada Vigilance adverse event reports in PDF format</p>
               </div>
             </div>
             <div className="flex items-start space-x-3">
               <div className="w-8 h-8 bg-medical-blue rounded-full flex items-center justify-center text-white font-medium">2</div>
               <div>
-                <h4 className="font-medium text-medical-blue">AI Extraction</h4>
+                <h4 className="font-medium text-medical-text">AI Extraction</h4>
                 <p className="text-sm text-gray-600">Parseur AI extracts structured data from the PDF documents</p>
               </div>
             </div>
             <div className="flex items-start space-x-3">
               <div className="w-8 h-8 bg-medical-blue rounded-full flex items-center justify-center text-white font-medium">3</div>
               <div>
-                <h4 className="font-medium text-medical-blue">ICSR Ready</h4>
+                <h4 className="font-medium text-medical-text">ICSR Ready</h4>
                 <p className="text-sm text-gray-600">Generate E2B R3 compliant case narratives for submission</p>
               </div>
             </div>
