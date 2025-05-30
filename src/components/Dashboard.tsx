@@ -28,6 +28,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
           <span>Create Case Narrative</span>
         </Button>
         <Button 
+          onClick={() => onNavigate('config')}
           variant="outline" 
           className="flex items-center space-x-2 border-medical-gray hover:bg-medical-gray"
         >

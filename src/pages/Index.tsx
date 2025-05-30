@@ -4,8 +4,9 @@ import { Header } from '@/components/Header';
 import { Dashboard } from '@/components/Dashboard';
 import { DocumentProcessor } from '@/components/DocumentProcessor';
 import { CaseNarrativeEditor } from '@/components/CaseNarrativeEditor';
+import { ApiConfiguration } from '@/components/ApiConfiguration';
 
-export type AppView = 'dashboard' | 'processor' | 'narrative';
+export type AppView = 'dashboard' | 'processor' | 'narrative' | 'config';
 
 const Index = () => {
   const [currentView, setCurrentView] = useState<AppView>('dashboard');
@@ -16,6 +17,8 @@ const Index = () => {
         return <DocumentProcessor onBack={() => setCurrentView('dashboard')} />;
       case 'narrative':
         return <CaseNarrativeEditor onBack={() => setCurrentView('dashboard')} />;
+      case 'config':
+        return <ApiConfiguration onConfigured={() => setCurrentView('dashboard')} />;
       default:
         return <Dashboard onNavigate={setCurrentView} />;
     }

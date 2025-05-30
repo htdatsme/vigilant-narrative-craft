@@ -1,6 +1,6 @@
 
 import { Button } from '@/components/ui/button';
-import { FileText, Upload, BarChart3 } from 'lucide-react';
+import { FileText, Upload, BarChart3, Settings } from 'lucide-react';
 import type { AppView } from '@/pages/Index';
 
 interface HeaderProps {
@@ -61,6 +61,18 @@ export const Header = ({ currentView, onNavigate }: HeaderProps) => {
             >
               <FileText className="w-4 h-4" />
               <span>Case Narratives</span>
+            </Button>
+            <Button
+              variant={currentView === 'config' ? 'default' : 'ghost'}
+              onClick={() => onNavigate('config')}
+              className={`flex items-center space-x-2 ${
+                currentView === 'config' 
+                  ? 'bg-medical-blue text-white hover:bg-blue-700' 
+                  : 'text-gray-600 hover:text-medical-blue hover:bg-gray-100'
+              }`}
+            >
+              <Settings className="w-4 h-4" />
+              <span>API Settings</span>
             </Button>
           </nav>
         </div>
