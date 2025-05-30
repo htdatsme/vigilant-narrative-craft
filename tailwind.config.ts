@@ -56,14 +56,14 @@ export default {
 					DEFAULT: 'hsl(var(--card))',
 					foreground: 'hsl(var(--card-foreground))'
 				},
-				// Medical color scheme - improved contrast
+				// Medical color scheme
 				medical: {
-					blue: '#1E40AF',      // Darker blue for better contrast
-					gray: '#E5E7EB',      // Lighter gray
-					success: '#059669',   // Darker green
-					warning: '#DC2626',   // Darker red
-					background: '#F9FAFB', // Very light background
-					text: '#1F2937'       // Dark text for readability
+					blue: '#2C5282',
+					gray: '#E2E8F0',
+					success: '#48BB78',
+					warning: '#F56565',
+					background: '#F7FAFC',
+					text: '#1A202C'
 				},
 				sidebar: {
 					DEFAULT: 'hsl(var(--sidebar-background))',
