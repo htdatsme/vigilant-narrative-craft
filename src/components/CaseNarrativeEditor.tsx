@@ -94,7 +94,7 @@ export const CaseNarrativeEditor = ({ onBack }: CaseNarrativeEditorProps) => {
               <CardTitle className="text-medical-text">Case Narrative Editor</CardTitle>
               <CardDescription>Create medical narratives for ICSR submission</CardDescription>
             </div>
-            <Button onClick={generateNarrative} variant="outline">
+            <Button onClick={generateNarrative} variant="outline" className="border-medical-blue text-medical-blue hover:bg-medical-blue hover:text-white">
               <FileText className="w-4 h-4 mr-2" />
               Generate Template
             </Button>
@@ -109,6 +109,7 @@ export const CaseNarrativeEditor = ({ onBack }: CaseNarrativeEditorProps) => {
                 value={caseId} 
                 onChange={(e) => setCaseId(e.target.value)}
                 placeholder="Enter case ID (e.g., CV-2024-001)"
+                className="bg-white border-gray-300"
               />
             </div>
             <div>
@@ -118,6 +119,7 @@ export const CaseNarrativeEditor = ({ onBack }: CaseNarrativeEditorProps) => {
                 type="date" 
                 value={reportDate}
                 onChange={(e) => setReportDate(e.target.value)}
+                className="bg-white border-gray-300"
               />
             </div>
           </div>
@@ -128,7 +130,7 @@ export const CaseNarrativeEditor = ({ onBack }: CaseNarrativeEditorProps) => {
               id="narrative"
               value={narrative}
               onChange={(e) => setNarrative(e.target.value)}
-              className="min-h-[400px] font-mono text-sm bg-white"
+              className="min-h-[400px] font-mono text-sm bg-white border-gray-300"
               placeholder="Enter the detailed case narrative or click 'Generate Template' to create a starting template..."
             />
           </div>

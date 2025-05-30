@@ -29,7 +29,11 @@ export const Header = ({ currentView, onNavigate }: HeaderProps) => {
             <Button
               variant={currentView === 'dashboard' ? 'default' : 'ghost'}
               onClick={() => onNavigate('dashboard')}
-              className="flex items-center space-x-2"
+              className={`flex items-center space-x-2 ${
+                currentView === 'dashboard' 
+                  ? 'bg-medical-blue text-white hover:bg-blue-700' 
+                  : 'text-gray-600 hover:text-medical-blue hover:bg-gray-100'
+              }`}
             >
               <BarChart3 className="w-4 h-4" />
               <span>Dashboard</span>
@@ -37,7 +41,11 @@ export const Header = ({ currentView, onNavigate }: HeaderProps) => {
             <Button
               variant={currentView === 'processor' ? 'default' : 'ghost'}
               onClick={() => onNavigate('processor')}
-              className="flex items-center space-x-2"
+              className={`flex items-center space-x-2 ${
+                currentView === 'processor' 
+                  ? 'bg-medical-blue text-white hover:bg-blue-700' 
+                  : 'text-gray-600 hover:text-medical-blue hover:bg-gray-100'
+              }`}
             >
               <Upload className="w-4 h-4" />
               <span>Process Documents</span>
@@ -45,7 +53,11 @@ export const Header = ({ currentView, onNavigate }: HeaderProps) => {
             <Button
               variant={currentView === 'narrative' ? 'default' : 'ghost'}
               onClick={() => onNavigate('narrative')}
-              className="flex items-center space-x-2"
+              className={`flex items-center space-x-2 ${
+                currentView === 'narrative' 
+                  ? 'bg-medical-blue text-white hover:bg-blue-700' 
+                  : 'text-gray-600 hover:text-medical-blue hover:bg-gray-100'
+              }`}
             >
               <FileText className="w-4 h-4" />
               <span>Case Narratives</span>
