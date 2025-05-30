@@ -1,4 +1,3 @@
-
 import { Tables } from '@/integrations/supabase/types';
 
 type Document = Tables<'documents'>;
@@ -82,7 +81,7 @@ const downloadFile = (content: string, filename: string, mimeType: string) => {
   URL.revokeObjectURL(url);
 };
 
-export const exportDocumentsData = async (documents: Document[], extractions: Extraction[], narratives: Narrative[]) => {
+export const exportDocumentsData = async (documents: any[], extractions: any[], narratives: any[]) => {
   const enrichedData = documents.map(doc => {
     const docExtractions = extractions.filter(ext => ext.document_id === doc.id);
     const docNarratives = narratives.filter(nar => 
