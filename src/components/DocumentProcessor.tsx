@@ -102,14 +102,27 @@ export const DocumentProcessor = ({ onBack }: DocumentProcessorProps) => {
         f.id === fileId ? { ...f, securityScan, progress: 50 } : f
       ));
 
-      // Step 4: Create extraction record
+      // Step 4: Create extraction record with properly formatted security scan data
       const checkpoint2 = progressTracker.createCheckpoint(sessionId, 'data_extracted');
+      
+      // Convert PHIField objects to plain objects for JSON storage
+      const securityScanForStorage = {
+        hasPHI: securityScan.hasPHI,
+        riskLevel: securityScan.riskLevel,
+        phiFieldsCount: securityScan.phiFields.length,
+        phiFieldTypes: securityScan.phiFields.map(field => ({
+          field: field.field,
+          value: field.value,
+          isEncrypted: field.isEncrypted,
+          classification: field.classification
+        }))
+      };
       
       const extraction = await createExtraction({
         document_id: document.id,
         status: 'completed',
         raw_data: { filename: file.name, size: file.size },
-        processed_data: { security_scan: securityScan }
+        processed_data: { security_scan: securityScanForStorage }
       });
 
       await checkpoint2();
@@ -132,7 +145,7 @@ export const DocumentProcessor = ({ onBack }: DocumentProcessorProps) => {
         documentId: document.id,
         details: {
           filename: file.name,
-          security_scan: securityScan,
+          security_scan: securityScanForStorage,
           processing_session: sessionId
         }
       });
