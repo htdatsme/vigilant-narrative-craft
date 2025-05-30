@@ -22,7 +22,7 @@ const Index = () => {
   };
 
   return (
-    <div className="min-h-screen bg-medical-background">
+    <div className="min-h-screen bg-gray-50">
       <Header currentView={currentView} onNavigate={setCurrentView} />
       <main className="container mx-auto px-4 py-6">
         {renderView()}

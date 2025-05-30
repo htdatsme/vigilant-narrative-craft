@@ -14,31 +14,6 @@ export interface ProcessingProgress {
   updatedAt: string;
 }
 
-interface ProgressDetails {
-  id: string;
-  current_step: string;
-  total_steps: number;
-  completed_steps: number;
-  status: string;
-  last_checkpoint: string;
-  metadata?: Record<string, any>;
-}
-
-// Type guard to check if details is a valid ProgressDetails object
-function isValidProgressDetails(details: any): details is ProgressDetails {
-  return (
-    details &&
-    typeof details === 'object' &&
-    !Array.isArray(details) &&
-    typeof details.id === 'string' &&
-    typeof details.current_step === 'string' &&
-    typeof details.total_steps === 'number' &&
-    typeof details.completed_steps === 'number' &&
-    typeof details.status === 'string' &&
-    typeof details.last_checkpoint === 'string'
-  );
-}
-
 class ProgressTracker {
   private progressCache: Map<string, ProcessingProgress> = new Map();
 
@@ -95,21 +70,23 @@ class ProgressTracker {
 
       if (error || !data || !data.details) return null;
 
-      // Use type guard to validate details
-      if (!isValidProgressDetails(data.details)) {
-        console.error('Invalid progress details format:', data.details);
+      // Safely access details with type assertion
+      const details = data.details as any;
+      
+      if (!details || typeof details !== 'object' || !details.id) {
+        console.error('Invalid progress details format:', details);
         return null;
       }
 
       const progress: ProcessingProgress = {
-        id: data.details.id,
+        id: details.id,
         documentId: data.document_id!,
-        currentStep: data.details.current_step,
-        totalSteps: data.details.total_steps,
-        completedSteps: data.details.completed_steps,
-        status: data.details.status as ProcessingProgress['status'],
-        lastCheckpoint: data.details.last_checkpoint,
-        metadata: data.details.metadata,
+        currentStep: details.current_step || '',
+        totalSteps: details.total_steps || 0,
+        completedSteps: details.completed_steps || 0,
+        status: details.status || 'running',
+        lastCheckpoint: details.last_checkpoint || '',
+        metadata: details.metadata,
         createdAt: data.timestamp,
         updatedAt: data.timestamp
       };

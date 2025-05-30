@@ -59,11 +59,9 @@ export const DocumentProcessor = ({ onBack }: DocumentProcessorProps) => {
     try {
       console.log(`Starting enhanced processing for file: ${file.name}`);
       
-      // Get current user
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('User not authenticated');
 
-      // Create processing session
       const sessionId = await createProcessingSession(fileId, 5);
       
       setFiles(prev => prev.map(f => 
@@ -77,7 +75,6 @@ export const DocumentProcessor = ({ onBack }: DocumentProcessorProps) => {
 
       const checkpoint1 = progressTracker.createCheckpoint(sessionId, 'security_scan');
       
-      // Read file content for security scan
       const fileContent = await file.text().catch(() => '');
       const securityScan = await validateDocumentSecurity(fileId, fileContent);
       
@@ -102,7 +99,7 @@ export const DocumentProcessor = ({ onBack }: DocumentProcessorProps) => {
       });
       await checkpoint2();
 
-      // Step 3: Create document record with retry
+      // Step 3: Create document record
       const createDocOperation = withRetry(
         () => createDocument({
           filename: file.name,
@@ -126,7 +123,7 @@ export const DocumentProcessor = ({ onBack }: DocumentProcessorProps) => {
       });
       await checkpoint3();
 
-      // Step 4: Process with edge function using fallback
+      // Step 4: Process with edge function
       setFiles(prev => prev.map(f => 
         f.id === fileId ? { ...f, progress: 60 } : f
       ));
@@ -140,7 +137,6 @@ export const DocumentProcessor = ({ onBack }: DocumentProcessorProps) => {
       });
 
       const fallbackProcessing = async () => {
-        // Fallback: Create basic extraction record
         await createLog({
           document_id: document.id,
           action: 'fallback_processing',
@@ -188,7 +184,6 @@ export const DocumentProcessor = ({ onBack }: DocumentProcessorProps) => {
         } : f
       ));
 
-      // Log compliance event
       await logComplianceEvent({
         action: 'document_processed',
         documentId: document.id,
@@ -259,7 +254,6 @@ export const DocumentProcessor = ({ onBack }: DocumentProcessorProps) => {
 
     setFiles(prev => [...prev, ...newFiles]);
     
-    // Process each file with enhanced edge function processing
     fileList
       .filter(file => file.type === 'application/pdf')
       .forEach((file, index) => {
