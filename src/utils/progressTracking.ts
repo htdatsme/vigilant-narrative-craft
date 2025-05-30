@@ -24,6 +24,20 @@ interface ProgressDetails {
   metadata?: Record<string, any>;
 }
 
+// Type guard to check if data is ProgressDetails
+function isProgressDetails(data: any): data is ProgressDetails {
+  return (
+    data &&
+    typeof data === 'object' &&
+    typeof data.id === 'string' &&
+    typeof data.current_step === 'string' &&
+    typeof data.total_steps === 'number' &&
+    typeof data.completed_steps === 'number' &&
+    typeof data.status === 'string' &&
+    typeof data.last_checkpoint === 'string'
+  );
+}
+
 class ProgressTracker {
   private progressCache: Map<string, ProcessingProgress> = new Map();
 
@@ -78,9 +92,15 @@ class ProgressTracker {
         .limit(1)
         .maybeSingle();
 
-      if (error || !data) return null;
+      if (error || !data || !data.details) return null;
 
-      const details = data.details as ProgressDetails;
+      // Safely cast the details with type guard
+      if (!isProgressDetails(data.details)) {
+        console.error('Invalid progress details format:', data.details);
+        return null;
+      }
+
+      const details = data.details;
 
       const progress: ProcessingProgress = {
         id: details.id,
