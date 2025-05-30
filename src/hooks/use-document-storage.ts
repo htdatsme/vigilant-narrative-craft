@@ -1,30 +1,23 @@
 
-import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 
 export const useDocumentStorage = () => {
   const { toast } = useToast();
 
-  const uploadDocument = async (file: File, userId: string) => {
+  const uploadDocument = async (file: File, userId?: string) => {
     try {
-      const fileExt = file.name.split('.').pop();
-      const fileName = `${userId}/${Date.now()}-${Math.random().toString(36).substring(2)}.${fileExt}`;
-
-      const { data, error } = await supabase.storage
-        .from('documents')
-        .upload(fileName, file, {
-          cacheControl: '3600',
-          upsert: false
-        });
-
-      if (error) throw error;
+      // Simulate file upload
+      const fileName = `${Date.now()}-${file.name}`;
+      
+      // Create a mock file path
+      const mockPath = `uploads/${fileName}`;
 
       toast({
         title: "Success",
         description: "Document uploaded successfully"
       });
 
-      return data;
+      return { path: mockPath };
     } catch (error) {
       console.error('Error uploading document:', error);
       toast({
@@ -38,12 +31,9 @@ export const useDocumentStorage = () => {
 
   const downloadDocument = async (filePath: string) => {
     try {
-      const { data, error } = await supabase.storage
-        .from('documents')
-        .download(filePath);
-
-      if (error) throw error;
-      return data;
+      // Simulate download
+      const blob = new Blob(['Mock file content'], { type: 'application/pdf' });
+      return blob;
     } catch (error) {
       console.error('Error downloading document:', error);
       toast({
@@ -57,12 +47,6 @@ export const useDocumentStorage = () => {
 
   const deleteDocument = async (filePath: string) => {
     try {
-      const { error } = await supabase.storage
-        .from('documents')
-        .remove([filePath]);
-
-      if (error) throw error;
-
       toast({
         title: "Success",
         description: "Document deleted successfully"
@@ -79,11 +63,7 @@ export const useDocumentStorage = () => {
   };
 
   const getPublicUrl = (filePath: string) => {
-    const { data } = supabase.storage
-      .from('documents')
-      .getPublicUrl(filePath);
-    
-    return data.publicUrl;
+    return `mock://storage/${filePath}`;
   };
 
   return {

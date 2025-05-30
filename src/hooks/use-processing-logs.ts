@@ -1,33 +1,26 @@
 
-import { useState, useEffect } from 'react';
-import { supabase } from '@/integrations/supabase/client';
+import { useState } from 'react';
 import { useToast } from '@/hooks/use-toast';
-import type { Tables, TablesInsert } from '@/integrations/supabase/types';
 
-type ProcessingLog = Tables<'processing_logs'>;
-type ProcessingLogInsert = TablesInsert<'processing_logs'>;
+interface ProcessingLog {
+  id: string;
+  document_id?: string;
+  user_id: string;
+  action: string;
+  details?: Record<string, any>;
+  timestamp: string;
+}
 
 export const useProcessingLogs = (documentId?: string) => {
   const [logs, setLogs] = useState<ProcessingLog[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const { toast } = useToast();
 
   const fetchLogs = async () => {
     try {
       setLoading(true);
-      let query = supabase
-        .from('processing_logs')
-        .select('*')
-        .order('timestamp', { ascending: false });
-
-      if (documentId) {
-        query = query.eq('document_id', documentId);
-      }
-
-      const { data, error } = await query;
-
-      if (error) throw error;
-      setLogs(data || []);
+      // Return empty array for now
+      setLogs([]);
     } catch (error) {
       console.error('Error fetching processing logs:', error);
       toast({
@@ -40,34 +33,22 @@ export const useProcessingLogs = (documentId?: string) => {
     }
   };
 
-  const createLog = async (log: Omit<ProcessingLogInsert, 'user_id' | 'timestamp'>) => {
+  const createLog = async (log: Omit<ProcessingLog, 'id' | 'user_id' | 'timestamp'>) => {
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error('User not authenticated');
-
-      const { data, error } = await supabase
-        .from('processing_logs')
-        .insert({ 
-          ...log, 
-          user_id: user.id,
-          timestamp: new Date().toISOString()
-        })
-        .select()
-        .single();
-
-      if (error) throw error;
+      const newLog: ProcessingLog = {
+        ...log,
+        id: `log_${Date.now()}`,
+        user_id: 'anonymous',
+        timestamp: new Date().toISOString()
+      };
       
-      setLogs(prev => [data, ...prev]);
-      return data;
+      setLogs(prev => [newLog, ...prev]);
+      return newLog;
     } catch (error) {
       console.error('Error creating processing log:', error);
       throw error;
     }
   };
-
-  useEffect(() => {
-    fetchLogs();
-  }, [documentId]);
 
   return {
     logs,

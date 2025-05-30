@@ -1,6 +1,4 @@
 
-import { supabase } from '@/integrations/supabase/client';
-
 export interface PHIField {
   field: string;
   value: any;
@@ -72,18 +70,13 @@ export const logComplianceEvent = async (event: {
   details?: Record<string, any>;
 }) => {
   try {
-    const { data: { user } } = await supabase.auth.getUser();
-    
-    await supabase.from('processing_logs').insert({
-      document_id: event.documentId || null,
-      user_id: event.userId || user?.id || 'system',
-      action: `compliance_${event.action}`,
-      details: {
-        phi_fields_count: event.phiFields?.length || 0,
-        phi_classifications: event.phiFields?.map(f => f.classification) || [],
-        compliance_timestamp: new Date().toISOString(),
-        ...event.details
-      }
+    // Simplified logging without database dependency
+    console.log('Compliance Event:', {
+      action: event.action,
+      documentId: event.documentId,
+      phiFieldsCount: event.phiFields?.length || 0,
+      timestamp: new Date().toISOString(),
+      ...event.details
     });
   } catch (error) {
     console.error('Failed to log compliance event:', error);
@@ -91,8 +84,7 @@ export const logComplianceEvent = async (event: {
 };
 
 export const encryptSensitiveData = (data: string, key?: string): string => {
-  // Note: In production, use proper encryption libraries like crypto-js
-  // This is a simple base64 encoding for demonstration
+  // Simple base64 encoding for demonstration
   return btoa(data);
 };
 

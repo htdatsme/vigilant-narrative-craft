@@ -1,6 +1,4 @@
 
-import { supabase } from '@/integrations/supabase/client';
-
 export interface ProcessingProgress {
   id: string;
   documentId: string;
@@ -19,12 +17,9 @@ class ProgressTracker {
 
   async saveProgress(progress: Partial<ProcessingProgress> & { id: string; documentId: string }) {
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error('User not authenticated');
-
       const progressData = {
         document_id: progress.documentId,
-        user_id: user.id,
+        user_id: 'anonymous', // No authentication required
         action: 'progress_update',
         details: {
           id: progress.id,
@@ -37,15 +32,21 @@ class ProgressTracker {
         }
       };
 
-      await supabase.from('processing_logs').insert(progressData);
-      
-      // Update local cache
+      // Update local cache immediately
       this.progressCache.set(progress.id, {
-        ...progress,
+        id: progress.id,
+        documentId: progress.documentId,
+        currentStep: progress.currentStep || '',
+        totalSteps: progress.totalSteps || 0,
+        completedSteps: progress.completedSteps || 0,
+        status: progress.status || 'running',
+        lastCheckpoint: progress.lastCheckpoint || '',
+        metadata: progress.metadata,
         createdAt: progress.createdAt || new Date().toISOString(),
         updatedAt: new Date().toISOString()
-      } as ProcessingProgress);
+      });
 
+      console.log('Progress saved:', progressData);
     } catch (error) {
       console.error('Failed to save progress:', error);
     }
@@ -58,42 +59,8 @@ class ProgressTracker {
         return this.progressCache.get(progressId)!;
       }
 
-      // Query database
-      const { data, error } = await supabase
-        .from('processing_logs')
-        .select('*')
-        .eq('action', 'progress_update')
-        .eq('details->id', progressId)
-        .order('timestamp', { ascending: false })
-        .limit(1)
-        .maybeSingle();
-
-      if (error || !data || !data.details) return null;
-
-      // Safely access details with type assertion
-      const details = data.details as any;
-      
-      if (!details || typeof details !== 'object' || !details.id) {
-        console.error('Invalid progress details format:', details);
-        return null;
-      }
-
-      const progress: ProcessingProgress = {
-        id: details.id,
-        documentId: data.document_id!,
-        currentStep: details.current_step || '',
-        totalSteps: details.total_steps || 0,
-        completedSteps: details.completed_steps || 0,
-        status: details.status || 'running',
-        lastCheckpoint: details.last_checkpoint || '',
-        metadata: details.metadata,
-        createdAt: data.timestamp,
-        updatedAt: data.timestamp
-      };
-
-      this.progressCache.set(progressId, progress);
-      return progress;
-
+      // For now, return null if not in cache (no database dependency)
+      return null;
     } catch (error) {
       console.error('Failed to load progress:', error);
       return null;
