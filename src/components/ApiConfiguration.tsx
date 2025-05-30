@@ -99,7 +99,7 @@ export const ApiConfiguration = ({ onConfigured }: ApiConfigurationProps) => {
     if (result === undefined) return null;
     return result ? 
       <CheckCircle className="w-4 h-4 text-medical-success" /> : 
-      <AlertTriangle className="w-4 h-4 text-medical-teal" />;
+      <AlertTriangle className="w-4 h-4 text-red-600" />;
   };
 
   const isConfigured = parseurApiKey && parseurTemplate && openaiApiKey;
@@ -119,7 +119,7 @@ export const ApiConfiguration = ({ onConfigured }: ApiConfigurationProps) => {
         </TabsList>
 
         <TabsContent value="parseur">
-          <Card>
+          <Card className="bg-white">
             <CardHeader>
               <CardTitle className="flex items-center space-x-2">
                 <Key className="w-5 h-5" />
@@ -139,6 +139,7 @@ export const ApiConfiguration = ({ onConfigured }: ApiConfigurationProps) => {
                   value={parseurApiKey}
                   onChange={(e) => setParseurApiKey(e.target.value)}
                   placeholder="Enter your Parseur API key"
+                  className="bg-white border-gray-300"
                 />
               </div>
               <div>
@@ -148,6 +149,7 @@ export const ApiConfiguration = ({ onConfigured }: ApiConfigurationProps) => {
                   value={parseurTemplate}
                   onChange={(e) => setParseurTemplate(e.target.value)}
                   placeholder="Enter your Canada Vigilance template ID"
+                  className="bg-white border-gray-300"
                 />
               </div>
               <Button 
@@ -163,7 +165,7 @@ export const ApiConfiguration = ({ onConfigured }: ApiConfigurationProps) => {
         </TabsContent>
 
         <TabsContent value="openai">
-          <Card>
+          <Card className="bg-white">
             <CardHeader>
               <CardTitle className="flex items-center space-x-2">
                 <Key className="w-5 h-5" />
@@ -183,6 +185,7 @@ export const ApiConfiguration = ({ onConfigured }: ApiConfigurationProps) => {
                   value={openaiApiKey}
                   onChange={(e) => setOpenaiApiKey(e.target.value)}
                   placeholder="Enter your OpenAI API key"
+                  className="bg-white border-gray-300"
                 />
               </div>
               <Button 
@@ -198,7 +201,7 @@ export const ApiConfiguration = ({ onConfigured }: ApiConfigurationProps) => {
         </TabsContent>
       </Tabs>
 
-      <Card>
+      <Card className="bg-white">
         <CardHeader>
           <CardTitle>Setup Status</CardTitle>
         </CardHeader>
