@@ -56,14 +56,15 @@ export default {
 					DEFAULT: 'hsl(var(--card))',
 					foreground: 'hsl(var(--card-foreground))'
 				},
-				// Medical color scheme
+				// Medical color scheme with subtle teal
 				medical: {
 					blue: '#2C5282',
 					gray: '#E2E8F0',
 					success: '#48BB78',
-					warning: '#F56565',
+					warning: '#319795', // Subtle teal instead of yellow/orange
 					background: '#F7FAFC',
-					text: '#1A202C'
+					text: '#1A202C',
+					teal: '#319795' // Subtle teal for accents
 				},
 				sidebar: {
 					DEFAULT: 'hsl(var(--sidebar-background))',

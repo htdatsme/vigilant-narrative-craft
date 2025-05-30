@@ -99,7 +99,7 @@ export const ApiConfiguration = ({ onConfigured }: ApiConfigurationProps) => {
     if (result === undefined) return null;
     return result ? 
       <CheckCircle className="w-4 h-4 text-medical-success" /> : 
-      <AlertTriangle className="w-4 h-4 text-medical-warning" />;
+      <AlertTriangle className="w-4 h-4 text-medical-teal" />;
   };
 
   const isConfigured = parseurApiKey && parseurTemplate && openaiApiKey;

@@ -36,10 +36,10 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
   if (!isConfigured) {
     return (
       <div className="space-y-6">
-        <Card className="border-medical-warning/20">
+        <Card className="border-medical-teal/20">
           <CardHeader>
             <div className="flex items-center space-x-3">
-              <AlertTriangle className="w-6 h-6 text-medical-warning" />
+              <AlertTriangle className="w-6 h-6 text-medical-teal" />
               <div>
                 <CardTitle className="text-medical-text">Setup Required</CardTitle>
                 <CardDescription>
