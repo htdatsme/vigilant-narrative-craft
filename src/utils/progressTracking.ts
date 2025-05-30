@@ -101,13 +101,13 @@ class ProgressTracker {
 
       if (error || !data || !data.details) return null;
 
-      // Safely cast the details with type guard
-      if (!isProgressDetails(data.details)) {
-        console.error('Invalid progress details format:', data.details);
+      // Convert details to unknown first, then check type
+      const details: unknown = data.details;
+      
+      if (!isProgressDetails(details)) {
+        console.error('Invalid progress details format:', details);
         return null;
       }
-
-      const details = data.details;
 
       const progress: ProcessingProgress = {
         id: details.id,
