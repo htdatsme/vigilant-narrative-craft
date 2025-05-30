@@ -14,6 +14,16 @@ export interface ProcessingProgress {
   updatedAt: string;
 }
 
+interface ProgressDetails {
+  id: string;
+  current_step: string;
+  total_steps: number;
+  completed_steps: number;
+  status: string;
+  last_checkpoint: string;
+  metadata?: Record<string, any>;
+}
+
 class ProgressTracker {
   private progressCache: Map<string, ProcessingProgress> = new Map();
 
@@ -66,19 +76,21 @@ class ProgressTracker {
         .eq('details->id', progressId)
         .order('timestamp', { ascending: false })
         .limit(1)
-        .single();
+        .maybeSingle();
 
       if (error || !data) return null;
 
+      const details = data.details as ProgressDetails;
+
       const progress: ProcessingProgress = {
-        id: data.details.id,
+        id: details.id,
         documentId: data.document_id!,
-        currentStep: data.details.current_step,
-        totalSteps: data.details.total_steps,
-        completedSteps: data.details.completed_steps,
-        status: data.details.status,
-        lastCheckpoint: data.details.last_checkpoint,
-        metadata: data.details.metadata,
+        currentStep: details.current_step,
+        totalSteps: details.total_steps,
+        completedSteps: details.completed_steps,
+        status: details.status as ProcessingProgress['status'],
+        lastCheckpoint: details.last_checkpoint,
+        metadata: details.metadata,
         createdAt: data.timestamp,
         updatedAt: data.timestamp
       };

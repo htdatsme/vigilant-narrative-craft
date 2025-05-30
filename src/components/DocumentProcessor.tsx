@@ -1,4 +1,3 @@
-
 import { useState, useCallback } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -152,13 +151,14 @@ export const DocumentProcessor = ({ onBack }: DocumentProcessorProps) => {
           .from('extractions')
           .insert({
             document_id: document.id,
+            user_id: user.id,
             status: 'completed',
             raw_data: { filename: file.name, fallback: true }
           })
           .select()
           .single();
 
-        return { data: { success: true, extractionId: extraction?.id } };
+        return { data: { success: true, extractionId: extraction?.id }, error: null };
       };
 
       const processOperation = createFallbackHandler(

@@ -56,12 +56,12 @@ export const AuditTrail = ({ documentId }: AuditTrailProps) => {
     return null;
   };
 
-  const handleExport = (format: 'csv' | 'json' | 'xml') => {
+  const handleExport = (exportFormat: 'csv' | 'json' | 'xml') => {
     const sanitizedLogs = sanitizeForExport(filteredLogs);
     const timestamp = format(new Date(), 'yyyy-MM-dd_HH-mm-ss');
     const filename = `audit_trail_${timestamp}`;
 
-    switch (format) {
+    switch (exportFormat) {
       case 'csv':
         exportToCSV(sanitizedLogs, filename);
         break;

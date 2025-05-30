@@ -163,7 +163,7 @@ export const DataExport = () => {
                 <Checkbox
                   id={dataType.id}
                   checked={selectedDataTypes.includes(dataType.id)}
-                  onCheckedChange={(checked) => handleDataTypeChange(dataType.id, checked as boolean)}
+                  onCheckedChange={(checked) => handleDataTypeChange(dataType.id, checked === true)}
                 />
                 <label htmlFor={dataType.id} className="flex-1 cursor-pointer">
                   <div className="flex items-center justify-between">
@@ -208,7 +208,7 @@ export const DataExport = () => {
                 <Checkbox
                   id="include-phi"
                   checked={includePHI}
-                  onCheckedChange={setIncludePHI}
+                  onCheckedChange={(checked) => setIncludePHI(checked === true)}
                 />
                 <label htmlFor="include-phi" className="text-sm text-orange-800">
                   Include PHI/PII in export (requires special authorization)
