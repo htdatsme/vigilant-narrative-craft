@@ -47,91 +47,112 @@ serve(async (req) => {
 
     // Step 1: Extract with Parseur (if configured)
     if (parseurApiKey) {
-      console.log('Processing with Parseur...');
+      console.log('Processing with Parseur AI...');
       
-      // Download file from storage
-      const { data: fileData, error: downloadError } = await supabase.storage
-        .from('documents')
-        .download(filePath);
+      try {
+        // Download file from storage
+        const { data: fileData, error: downloadError } = await supabase.storage
+          .from('documents')
+          .download(filePath);
 
-      if (downloadError) {
-        throw new Error(`Failed to download file: ${downloadError.message}`);
-      }
+        if (downloadError) {
+          throw new Error(`Failed to download file: ${downloadError.message}`);
+        }
 
-      // Convert to FormData for Parseur
-      const formData = new FormData();
-      formData.append('file', fileData, filename);
+        // Convert to FormData for Parseur AI
+        const formData = new FormData();
+        formData.append('file', fileData, filename);
 
-      const parseurResponse = await fetch('https://api.parseur.com/parser/upload', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Token ${parseurApiKey}`,
-        },
-        body: formData
-      });
-
-      if (parseurResponse.ok) {
-        extractedData = await parseurResponse.json();
-        console.log('Parseur extraction completed');
-        
-        await supabase.from('processing_logs').insert({
-          document_id: documentId,
-          action: 'parseur_extraction_completed',
-          details: { extractedFields: Object.keys(extractedData || {}).length }
+        // Use Parseur's AI endpoint for automatic extraction
+        const parseurResponse = await fetch('https://api.parseur.com/parser/ai/extract', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Token ${parseurApiKey}`,
+          },
+          body: formData
         });
-      } else {
-        console.error('Parseur extraction failed:', await parseurResponse.text());
+
+        if (parseurResponse.ok) {
+          extractedData = await parseurResponse.json();
+          console.log('Parseur AI extraction completed');
+          
+          await supabase.from('processing_logs').insert({
+            document_id: documentId,
+            action: 'parseur_extraction_completed',
+            details: { extractedFields: Object.keys(extractedData || {}).length }
+          });
+        } else {
+          const errorText = await parseurResponse.text();
+          console.error('Parseur extraction failed:', errorText);
+          await supabase.from('processing_logs').insert({
+            document_id: documentId,
+            action: 'parseur_extraction_failed',
+            details: { error: `Parseur API error: ${errorText}` }
+          });
+        }
+      } catch (error) {
+        console.error('Parseur processing error:', error);
         await supabase.from('processing_logs').insert({
           document_id: documentId,
           action: 'parseur_extraction_failed',
-          details: { error: 'Parseur API error' }
+          details: { error: error.message }
         });
       }
     }
 
-    // Step 2: Analyze with OpenAI (if configured)
+    // Step 2: Analyze with OpenAI (if configured and data was extracted)
     if (openaiApiKey && extractedData) {
       console.log('Analyzing with OpenAI...');
       
-      const openaiResponse = await fetch('https://api.openai.com/v1/chat/completions', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${openaiApiKey}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          model: 'gpt-4o-mini',
-          messages: [
-            {
-              role: 'system',
-              content: 'You are a medical data analyst specializing in adverse event reports. Analyze the extracted data and structure it according to E2B R3 format for ICSR submissions. Focus on identifying patient information, adverse events, suspect medications, and relevant medical history.'
-            },
-            {
-              role: 'user',
-              content: `Please analyze this Canada Vigilance adverse event data and structure it for E2B R3 format: ${JSON.stringify(extractedData)}`
-            }
-          ],
-          temperature: 0.1,
-          max_tokens: 2000
-        })
-      });
-
-      if (openaiResponse.ok) {
-        const openaiResult = await openaiResponse.json();
-        analysisResult = openaiResult.choices[0].message.content;
-        console.log('OpenAI analysis completed');
-        
-        await supabase.from('processing_logs').insert({
-          document_id: documentId,
-          action: 'openai_analysis_completed',
-          details: { tokensUsed: openaiResult.usage?.total_tokens }
+      try {
+        const openaiResponse = await fetch('https://api.openai.com/v1/chat/completions', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${openaiApiKey}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            model: 'gpt-4o-mini',
+            messages: [
+              {
+                role: 'system',
+                content: 'You are a medical data analyst specializing in adverse event reports. Analyze the extracted data and structure it according to E2B R3 format for ICSR submissions. Focus on identifying patient information, adverse events, suspect medications, and relevant medical history.'
+              },
+              {
+                role: 'user',
+                content: `Please analyze this Canada Vigilance adverse event data and structure it for E2B R3 format: ${JSON.stringify(extractedData)}`
+              }
+            ],
+            temperature: 0.1,
+            max_tokens: 2000
+          })
         });
-      } else {
-        console.error('OpenAI analysis failed:', await openaiResponse.text());
+
+        if (openaiResponse.ok) {
+          const openaiResult = await openaiResponse.json();
+          analysisResult = openaiResult.choices[0].message.content;
+          console.log('OpenAI analysis completed');
+          
+          await supabase.from('processing_logs').insert({
+            document_id: documentId,
+            action: 'openai_analysis_completed',
+            details: { tokensUsed: openaiResult.usage?.total_tokens }
+          });
+        } else {
+          const errorText = await openaiResponse.text();
+          console.error('OpenAI analysis failed:', errorText);
+          await supabase.from('processing_logs').insert({
+            document_id: documentId,
+            action: 'openai_analysis_failed',
+            details: { error: `OpenAI API error: ${errorText}` }
+          });
+        }
+      } catch (error) {
+        console.error('OpenAI processing error:', error);
         await supabase.from('processing_logs').insert({
           document_id: documentId,
           action: 'openai_analysis_failed',
-          details: { error: 'OpenAI API error' }
+          details: { error: error.message }
         });
       }
     }

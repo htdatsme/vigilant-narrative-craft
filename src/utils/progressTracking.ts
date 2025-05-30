@@ -14,37 +14,6 @@ export interface ProcessingProgress {
   updatedAt: string;
 }
 
-interface ProgressDetails {
-  id: string;
-  current_step: string;
-  total_steps: number;
-  completed_steps: number;
-  status: string;
-  last_checkpoint: string;
-  metadata?: Record<string, any>;
-}
-
-// Type guard to check if data is ProgressDetails
-function isProgressDetails(data: unknown): data is ProgressDetails {
-  return (
-    data !== null &&
-    typeof data === 'object' &&
-    data !== undefined &&
-    'id' in data &&
-    'current_step' in data &&
-    'total_steps' in data &&
-    'completed_steps' in data &&
-    'status' in data &&
-    'last_checkpoint' in data &&
-    typeof (data as any).id === 'string' &&
-    typeof (data as any).current_step === 'string' &&
-    typeof (data as any).total_steps === 'number' &&
-    typeof (data as any).completed_steps === 'number' &&
-    typeof (data as any).status === 'string' &&
-    typeof (data as any).last_checkpoint === 'string'
-  );
-}
-
 class ProgressTracker {
   private progressCache: Map<string, ProcessingProgress> = new Map();
 
@@ -101,23 +70,30 @@ class ProgressTracker {
 
       if (error || !data || !data.details) return null;
 
-      // Convert details to unknown first, then check type
-      const details: unknown = data.details;
+      // Safely extract details with proper type checking
+      const rawDetails = data.details;
       
-      if (!isProgressDetails(details)) {
-        console.error('Invalid progress details format:', details);
+      // Basic type checking to ensure we have the required fields
+      if (typeof rawDetails !== 'object' || rawDetails === null ||
+          typeof rawDetails.id !== 'string' ||
+          typeof rawDetails.current_step !== 'string' ||
+          typeof rawDetails.total_steps !== 'number' ||
+          typeof rawDetails.completed_steps !== 'number' ||
+          typeof rawDetails.status !== 'string' ||
+          typeof rawDetails.last_checkpoint !== 'string') {
+        console.error('Invalid progress details format:', rawDetails);
         return null;
       }
 
       const progress: ProcessingProgress = {
-        id: details.id,
+        id: rawDetails.id,
         documentId: data.document_id!,
-        currentStep: details.current_step,
-        totalSteps: details.total_steps,
-        completedSteps: details.completed_steps,
-        status: details.status as ProcessingProgress['status'],
-        lastCheckpoint: details.last_checkpoint,
-        metadata: details.metadata,
+        currentStep: rawDetails.current_step,
+        totalSteps: rawDetails.total_steps,
+        completedSteps: rawDetails.completed_steps,
+        status: rawDetails.status as ProcessingProgress['status'],
+        lastCheckpoint: rawDetails.last_checkpoint,
+        metadata: rawDetails.metadata as Record<string, any>,
         createdAt: data.timestamp,
         updatedAt: data.timestamp
       };

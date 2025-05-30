@@ -15,7 +15,6 @@ interface ApiConfigurationProps {
 
 export const ApiConfiguration = ({ onConfigured }: ApiConfigurationProps) => {
   const [parseurApiKey, setParseurApiKey] = useState(localStorage.getItem('parseur_api_key') || '');
-  const [parseurTemplate, setParseurTemplate] = useState(localStorage.getItem('parseur_template') || '');
   const [openaiApiKey, setOpenaiApiKey] = useState(localStorage.getItem('openai_api_key') || '');
   const [testResults, setTestResults] = useState<Record<string, boolean>>({});
   const [isLoading, setIsLoading] = useState(false);
@@ -23,7 +22,6 @@ export const ApiConfiguration = ({ onConfigured }: ApiConfigurationProps) => {
 
   const saveCredentials = () => {
     localStorage.setItem('parseur_api_key', parseurApiKey);
-    localStorage.setItem('parseur_template', parseurTemplate);
     localStorage.setItem('openai_api_key', openaiApiKey);
     
     toast({
@@ -37,8 +35,8 @@ export const ApiConfiguration = ({ onConfigured }: ApiConfigurationProps) => {
   const testParseurConnection = async () => {
     setIsLoading(true);
     try {
-      // Test Parseur API connection
-      const response = await fetch('https://api.parseur.com/parser/me', {
+      // Test Parseur API connection with correct endpoint
+      const response = await fetch('https://api.parseur.com/parser', {
         headers: {
           'Authorization': `Token ${parseurApiKey}`,
           'Content-Type': 'application/json'
@@ -102,7 +100,7 @@ export const ApiConfiguration = ({ onConfigured }: ApiConfigurationProps) => {
       <AlertTriangle className="w-4 h-4 text-red-600" />;
   };
 
-  const isConfigured = parseurApiKey && parseurTemplate && openaiApiKey;
+  const isConfigured = parseurApiKey && openaiApiKey;
 
   return (
     <div className="max-w-4xl mx-auto space-y-6">
@@ -127,7 +125,7 @@ export const ApiConfiguration = ({ onConfigured }: ApiConfigurationProps) => {
                 {getTestIcon('parseur')}
               </CardTitle>
               <CardDescription>
-                Configure Parseur AI for PDF extraction. You'll need an API key and template ID from your Parseur account.
+                Configure Parseur AI for PDF extraction. You'll need an API key from your Parseur account. Parseur's AI engine will automatically extract data from your documents without requiring templates.
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
@@ -139,16 +137,6 @@ export const ApiConfiguration = ({ onConfigured }: ApiConfigurationProps) => {
                   value={parseurApiKey}
                   onChange={(e) => setParseurApiKey(e.target.value)}
                   placeholder="Enter your Parseur API key"
-                  className="bg-white border-gray-300"
-                />
-              </div>
-              <div>
-                <Label htmlFor="parseur-template">Template ID</Label>
-                <Input
-                  id="parseur-template"
-                  value={parseurTemplate}
-                  onChange={(e) => setParseurTemplate(e.target.value)}
-                  placeholder="Enter your Canada Vigilance template ID"
                   className="bg-white border-gray-300"
                 />
               </div>
